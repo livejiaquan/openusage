@@ -288,14 +288,20 @@ final class CodexProvider: ProviderRuntime {
         // can surface a false "token expired"). The refreshed token works for this session, so log and
         // continue. This is also the only call site of authStore.save, so a genuinely undecodable
         // payload (CodexAuthError.invalidAuthPayload) now surfaces in the log instead of vanishing.
+        var persisted = true
         do {
             try authStore.save(authState)
         } catch {
+            persisted = false
             AppLog.error(LogTag.auth("codex"), "failed to persist rotated credentials; using the refreshed token for this session only: \(error.localizedDescription)")
         }
-        if authStore.expectedIdentity != nil, authStore.scoped(authState) == nil {
-            AppLog.warn(LogTag.auth("codex"), "rotated credential no longer names this account; trying a matching login")
-            throw CodexAuthError.tokenConflict
+        if authStore.expectedIdentity != nil {
+            if authStore.scoped(authState) == nil {
+                AppLog.warn(LogTag.auth("codex"), "rotated credential no longer names this account; trying a matching login")
+                throw CodexAuthError.tokenConflict
+            }
+            // The card compares `authState` to the source afterwards, so it must describe what is on disk.
+            if !persisted { authState = loaded }
         }
         return response.accessToken
     }

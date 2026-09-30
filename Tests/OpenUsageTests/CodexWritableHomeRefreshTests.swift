@@ -11,7 +11,7 @@ final class CodexWritableHomeRefreshTests: XCTestCase {
     private var valid: String { Fixtures.token(accountID: "A", email: "a@test", exp: Self.now.addingTimeInterval(3600)) }
 
     private func store(
-        files: FakeFiles, keychain: FakeKeychain = FakeKeychain(), environment: [String: String],
+        files: any TextFileAccessing, keychain: FakeKeychain = FakeKeychain(), environment: [String: String],
         additional: [String] = [], writable: [String] = [], pi: [CodexPiCredentialSource] = []
     ) -> CodexAuthStore {
         CodexAuthStore(
@@ -81,6 +81,22 @@ final class CodexWritableHomeRefreshTests: XCTestCase {
         XCTAssertEqual(saved.tokens?.accessToken, valid)
         XCTAssertEqual(saved.tokens?.refreshToken, "rt2")
         XCTAssertTrue(http.requests.contains { $0.headers["ChatGPT-Account-Id"] == "a" })
+    }
+
+    func testUnpersistedRotationStillServesTheRefresh() async throws {
+        let auth = Fixtures.codexAuth(accountID: "A", email: "a@test", accessToken: expired)
+        let files = UnwritableFiles(FakeFiles(["/test/home/auth.json": auth]))
+        let http = RoutingHTTPClient { [valid] request in
+            request.url.host == "auth.openai.com"
+                ? Self.refreshResponse(valid, refreshToken: "rt2") : Fixtures.usageResponse()
+        }
+        let store = store(files: files, environment: ["CODEX_HOME": "/test/home"], writable: ["/test/home"])
+
+        let snapshot = await provider(store, http: http).refresh()
+
+        XCTAssertNil(snapshot.errorCategory)
+        XCTAssertEqual(http.requests.filter { $0.url.host == "auth.openai.com" }.count, 1)
+        XCTAssertEqual(files.files.files["/test/home/auth.json"], auth)
     }
 
     func testLoginChangedDuringRefreshIsNeverOverwritten() async throws {
@@ -230,4 +246,16 @@ final class CodexWritableHomeRefreshTests: XCTestCase {
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
         return root.path
     }
+}
+
+/// A file system whose writes fail, standing in for a read-only volume or a permissions error.
+private struct UnwritableFiles: TextFileAccessing {
+    struct WriteFailed: Error {}
+    let files: FakeFiles
+
+    init(_ files: FakeFiles) { self.files = files }
+    func exists(_ path: String) -> Bool { files.exists(path) }
+    func readText(_ path: String) throws -> String { try files.readText(path) }
+    func writeText(_ path: String, _ text: String) throws { throw WriteFailed() }
+    func remove(_ path: String) throws { throw WriteFailed() }
 }
