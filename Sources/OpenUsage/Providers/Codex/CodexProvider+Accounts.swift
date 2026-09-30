@@ -5,6 +5,8 @@ extension CodexProvider {
     /// plain card uses. Read-only sources (xswap, pi, the Keychain) count only while their token is
     /// valid; an independent Codex home refreshes and writes back like the plain card. A login that
     /// changes on disk mid-refresh invalidates the pending result, so the pass starts over once.
+    /// Rotated credentials that could not be written back stay in memory; the conflict check compares
+    /// the source against what the probe last read or wrote there, not against the working copy.
     func refreshAccount() async -> ProviderSnapshot {
         for _ in 0..<2 {
             var candidates = authStore.loadAuthCandidates()
@@ -17,15 +19,16 @@ extension CodexProvider {
                 if candidate.readOnly, let token = candidate.auth.tokens?.accessToken,
                    let expiry = authStore.accessTokenExpiresAt(token), expiry <= now() { continue }
                 var state = candidate
+                var onDisk = candidate
                 do {
-                    let result = try await probe(authState: &state)
-                    guard await authStore.isCurrent(state) else { changed = true; break }
+                    let result = try await probe(authState: &state, onDisk: &onDisk)
+                    guard await authStore.isCurrent(onDisk) else { changed = true; break }
                     return result
                 } catch let error as CodexAuthError where error.allowsAuthFallback {
-                    guard await authStore.isCurrent(state) else { changed = true; break }
+                    guard await authStore.isCurrent(onDisk) else { changed = true; break }
                     AppLog.warn(LogTag.auth("codex"), "account credential failed (\(error)); trying a matching login")
                 } catch {
-                    guard await authStore.isCurrent(state) else { changed = true; break }
+                    guard await authStore.isCurrent(onDisk) else { changed = true; break }
                     return ProviderSnapshot.error(provider: provider, error: error)
                 }
             }

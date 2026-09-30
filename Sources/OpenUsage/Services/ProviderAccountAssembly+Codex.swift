@@ -19,6 +19,8 @@ struct CodexAccountCard: Equatable, Sendable {
 struct CodexAccountDiscovery: Equatable, Sendable {
     var cards: [CodexAccountCard] = []
     var plainAuthHomes: [String] = []
+    /// The independent homes among `plainAuthHomes`; see `CodexAccountCard.writableAuthHomes`.
+    var plainWritableAuthHomes: [String] = []
     var plainPiCredentialSources: [CodexPiCredentialSource] = []
     var allowsUnattributedHistory = true
 }
@@ -36,6 +38,9 @@ extension ProviderAccountAssembly {
         let swaps = CodexSwapAccount.discover(
             environment: observer.environment, files: observer.files, home: homeDirectory
         )
+        let managedHomes = Set(CodexSwapAccount.managedHomes(
+            environment: observer.environment, files: observer.files, home: homeDirectory
+        ).map { CodexHomeScanner.canonicalHome($0, homeDirectory: homeDirectory) })
         let homeScan = CodexHomeScanner(
             environment: observer.environment,
             files: observer.files,
@@ -69,8 +74,11 @@ extension ProviderAccountAssembly {
         let hasIncompleteLogin = hasUnidentifiedLogin
             || homeLogins.contains { !CodexAccountIdentity.isComplete(key: $0.identity.key) }
         guard !swaps.isEmpty || hasEstablishedAccounts || knownIdentities.count > 1 else {
+            let plainHomes = homeLogins.map(\.home).filter { !configuredHomes.contains($0) }
             return CodexAccountDiscovery(
-                plainAuthHomes: homeLogins.map(\.home).filter { !configuredHomes.contains($0) },
+                plainAuthHomes: plainHomes,
+                plainWritableAuthHomes: Set(plainHomes.map { CodexHomeScanner.canonicalHome($0, homeDirectory: homeDirectory) })
+                    .subtracting(managedHomes).sorted(),
                 plainPiCredentialSources: piScan.logins.map {
                     CodexPiCredentialSource(path: $0.authPath, providerID: $0.providerID)
                 },
@@ -135,8 +143,6 @@ extension ProviderAccountAssembly {
         let swapHomes = swaps.flatMap { [$0.mainHome, $0.home] }
             .map { CodexHomeScanner.standardizedHome($0, homeDirectory: homeDirectory) }
         let logHomes = Set(homeLogins.map(\.home)).union(swapHomes).sorted()
-        let managedHomes = Set(swaps.flatMap { [$0.mainHome, $0.home] }
-            .map { CodexHomeScanner.canonicalHome($0, homeDirectory: homeDirectory) })
         // Registry order is persistent; observation order follows the current default login.
         // Even an uncustomized layout must keep its cards in place after a switch and relaunch.
         let cards = records.compactMap { record -> CodexAccountCard? in
