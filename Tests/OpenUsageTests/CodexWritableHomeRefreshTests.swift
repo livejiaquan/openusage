@@ -1,0 +1,233 @@
+import XCTest
+@testable import OpenUsage
+
+/// Token refresh on account cards: only an independent Codex home may rotate and persist its token.
+@MainActor
+final class CodexWritableHomeRefreshTests: XCTestCase {
+    private typealias Fixtures = CodexMultiAccountFixtures
+    private nonisolated static let now = Date(timeIntervalSince1970: 1_800_000_000)
+    private var identity: CodexAccountIdentity { CodexAccountIdentity(accountID: "A", email: "a@test")! }
+    private var expired: String { Fixtures.token(accountID: "A", email: "a@test", exp: Self.now.addingTimeInterval(-60)) }
+    private var valid: String { Fixtures.token(accountID: "A", email: "a@test", exp: Self.now.addingTimeInterval(3600)) }
+
+    private func store(
+        files: FakeFiles, keychain: FakeKeychain = FakeKeychain(), environment: [String: String],
+        additional: [String] = [], writable: [String] = [], pi: [CodexPiCredentialSource] = []
+    ) -> CodexAuthStore {
+        CodexAuthStore(
+            environment: FakeEnvironment(environment), files: files, keychain: keychain, now: { Self.now },
+            expectedIdentity: identity, additionalAuthHomes: additional,
+            writableAuthHomes: Set(writable.map { CodexHomeScanner.canonicalHome($0) }), piCredentialSources: pi
+        )
+    }
+
+    private func provider(_ store: CodexAuthStore, http: RoutingHTTPClient) -> CodexProvider {
+        CodexProvider(authStore: store, usageClient: CodexUsageClient(http: http), now: { Self.now })
+    }
+
+    private nonisolated static func refreshResponse(_ token: String, refreshToken: String? = nil, idToken: String? = nil) -> HTTPResponse {
+        var body = #""access_token":"\#(token)""#
+        if let refreshToken { body += #","refresh_token":"\#(refreshToken)""# }
+        if let idToken { body += #","id_token":"\#(idToken)""# }
+        return HTTPResponse(statusCode: 200, headers: [:], body: Data("{\(body)}".utf8))
+    }
+
+    func testIndependentHomeIsWritableWhileSwapPiAndKeychainStayReadOnly() throws {
+        let credential = Fixtures.codexAuth(accountID: "A", email: "a@test")
+        let files = FakeFiles([
+            "/test/home/auth.json": credential,
+            "/test/swap-main/auth.json": credential,
+            "/test/pi/auth.json": Fixtures.piAuth([("openai-codex", "A", "a@test")]),
+        ])
+        let store = store(
+            files: files, keychain: FakeKeychain(credential), environment: ["CODEX_HOME": "/test/home"],
+            additional: ["/test/swap-main"], writable: ["/test/home"],
+            pi: [.init(path: "/test/pi/auth.json", providerID: "openai-codex")]
+        )
+
+        let candidates = store.loadAuthCandidates() + [try XCTUnwrap(store.loadKeychainAuth())]
+
+        XCTAssertEqual(candidates.count, 4)
+        XCTAssertFalse(candidates[0].readOnly)
+        XCTAssertEqual(candidates[0].auth.tokens?.refreshToken, "rt")
+        for readOnly in candidates.dropFirst() {
+            XCTAssertTrue(readOnly.readOnly, "\(readOnly.source)")
+            XCTAssertNil(readOnly.auth.tokens?.refreshToken, "\(readOnly.source)")
+        }
+    }
+
+    func testAliasOfAWritableHomeResolvesToTheSameHome() throws {
+        let root = try makeScratchDirectory(["home"], links: ["alias": "home"])
+        let files = FakeFiles(["\(root)/alias/auth.json": Fixtures.codexAuth(accountID: "A", email: "a@test")])
+        let store = store(files: files, environment: ["CODEX_HOME": "\(root)/alias"], writable: ["\(root)/home"])
+
+        XCTAssertEqual(try XCTUnwrap(store.loadAuthCandidates().first).readOnly, false)
+    }
+
+    func testIndependentHomeRefreshPersistsRotatedCredentials() async throws {
+        let files = FakeFiles([
+            "/test/home/auth.json": Fixtures.codexAuth(accountID: "A", email: "a@test", accessToken: expired),
+        ])
+        let http = RoutingHTTPClient { [valid] request in
+            request.url.host == "auth.openai.com"
+                ? Self.refreshResponse(valid, refreshToken: "rt2", idToken: valid) : Fixtures.usageResponse()
+        }
+        let store = store(files: files, environment: ["CODEX_HOME": "/test/home"], writable: ["/test/home"])
+
+        let snapshot = await provider(store, http: http).refresh()
+
+        XCTAssertNil(snapshot.errorCategory)
+        let saved = try XCTUnwrap(CodexAuthStore.parseAuth(try XCTUnwrap(files.files["/test/home/auth.json"])))
+        XCTAssertEqual(saved.tokens?.accessToken, valid)
+        XCTAssertEqual(saved.tokens?.refreshToken, "rt2")
+        XCTAssertTrue(http.requests.contains { $0.headers["ChatGPT-Account-Id"] == "a" })
+    }
+
+    func testLoginChangedDuringRefreshIsNeverOverwritten() async throws {
+        let replacement = Fixtures.codexAuth(accountID: "B", email: "b@test")
+        let files = FakeFiles([
+            "/test/home/auth.json": Fixtures.codexAuth(accountID: "A", email: "a@test", accessToken: expired),
+        ])
+        let http = RoutingHTTPClient { [valid] request in
+            guard request.url.host == "auth.openai.com" else {
+                return HTTPResponse(statusCode: 500, headers: [:], body: Data())
+            }
+            files.files["/test/home/auth.json"] = replacement
+            return Self.refreshResponse(valid, idToken: valid)
+        }
+        let store = store(files: files, environment: ["CODEX_HOME": "/test/home"], writable: ["/test/home"])
+
+        let snapshot = await provider(store, http: http).refresh()
+
+        XCTAssertEqual(snapshot.errorCategory, .authExpired)
+        XCTAssertEqual(files.files["/test/home/auth.json"], replacement)
+        XCTAssertEqual(http.requests.count, 1)
+    }
+
+    func testRejectedHomeRefreshFallsBackToMatchingPiCredential() async throws {
+        let original = Fixtures.codexAuth(accountID: "A", email: "a@test", accessToken: expired)
+        let files = FakeFiles([
+            "/test/home/auth.json": original,
+            "/test/pi/auth.json": #"{"openai-codex":{"type":"oauth","access":"\#(valid)","accountId":"A"}}"#,
+        ])
+        let http = RoutingHTTPClient { request in
+            request.url.host == "auth.openai.com"
+                ? HTTPResponse(statusCode: 400, headers: [:], body: Data(#"{"error":{"code":"refresh_token_reused"}}"#.utf8))
+                : Fixtures.usageResponse()
+        }
+        let store = store(
+            files: files, environment: ["CODEX_HOME": "/test/home"], writable: ["/test/home"],
+            pi: [.init(path: "/test/pi/auth.json", providerID: "openai-codex")]
+        )
+
+        let snapshot = await provider(store, http: http).refresh()
+
+        XCTAssertNil(snapshot.errorCategory)
+        XCTAssertEqual(http.requests[0].url.host, "auth.openai.com")
+        XCTAssertEqual(http.requests[1].headers["Authorization"], "Bearer \(valid)")
+        XCTAssertEqual(files.files["/test/home/auth.json"], original)
+    }
+
+    func testRejectedUnexpiredHomeTokenRenewsAndRetries() async throws {
+        let renewed = Fixtures.token(accountID: "A", email: "a@test", exp: Self.now.addingTimeInterval(7200))
+        let files = FakeFiles([
+            "/test/home/auth.json": Fixtures.codexAuth(accountID: "A", email: "a@test", accessToken: valid),
+        ])
+        let http = RoutingHTTPClient { [valid] request in
+            if request.url.host == "auth.openai.com" { return Self.refreshResponse(renewed, refreshToken: "rt2") }
+            if request.headers["Authorization"] == "Bearer \(valid)" {
+                return HTTPResponse(statusCode: 401, headers: [:], body: Data())
+            }
+            return Fixtures.usageResponse()
+        }
+        let store = store(files: files, environment: ["CODEX_HOME": "/test/home"], writable: ["/test/home"])
+
+        let snapshot = await provider(store, http: http).refresh()
+
+        XCTAssertNil(snapshot.errorCategory)
+        XCTAssertEqual(http.requests[1].url.host, "auth.openai.com")
+        XCTAssertEqual(http.requests[2].headers["Authorization"], "Bearer \(renewed)")
+        XCTAssertEqual(CodexAuthStore.parseAuth(try XCTUnwrap(files.files["/test/home/auth.json"]))?.tokens?.accessToken, renewed)
+    }
+
+    func testRotationPersistsBeforeRejectingAnIdentityWithoutEmail() async throws {
+        let rotated = Fixtures.token(accountID: "A", email: nil, exp: Self.now.addingTimeInterval(3600))
+        let files = FakeFiles([
+            "/test/home/auth.json": Fixtures.codexAuth(accountID: "A", email: "a@test", accessToken: expired),
+        ])
+        let http = RoutingHTTPClient { request in
+            request.url.host == "auth.openai.com"
+                ? Self.refreshResponse(rotated, refreshToken: "rt2", idToken: rotated)
+                : HTTPResponse(statusCode: 500, headers: [:], body: Data())
+        }
+        let store = store(files: files, environment: ["CODEX_HOME": "/test/home"], writable: ["/test/home"])
+
+        let snapshot = await provider(store, http: http).refresh()
+
+        XCTAssertEqual(snapshot.errorCategory, .authExpired)
+        let saved = try XCTUnwrap(CodexAuthStore.parseAuth(try XCTUnwrap(files.files["/test/home/auth.json"])))
+        XCTAssertEqual(saved.tokens?.refreshToken, "rt2")
+        XCTAssertEqual(http.requests.count, 1)
+    }
+
+    // MARK: - Assembly
+
+    func testSymlinkedCodexHomeAliasOfSwapMainHomeStaysReadOnly() async throws {
+        let root = try makeScratchDirectory(["main", ".codex-work"], links: ["alias": "main"])
+        let swapCredential = Fixtures.codexAuth(accountID: "A", email: "a@test", accessToken: expired)
+        let files = FakeFiles([
+            "\(root)/swap/accounts.json": #"{"schemaVersion":1,"mainHome":"\#(root)/main","accounts":[{"number":1,"alias":"A","home":"\#(root)/saved","identity":{"accountId":"A","email":"a@test"}}]}"#,
+            "\(root)/alias/auth.json": swapCredential,
+            "\(root)/saved/auth.json": swapCredential,
+            "\(root)/.codex-work/auth.json": Fixtures.codexAuth(accountID: "B", email: "b@test"),
+        ])
+        let environment = ["CODEX_HOME": "\(root)/alias", "XSWAP_HOME": "\(root)/swap"]
+        let observer = DefaultAccountObserver(
+            environment: FakeEnvironment(environment), files: files, keychain: FakeKeychain(),
+            homeDirectory: { URL(fileURLWithPath: root) }
+        )
+
+        let assembly = await ProviderAccountAssembly.make(
+            observer: observer, accountsStore: ProviderAccountsStore(defaults: makeScratchDefaults()),
+            families: ["codex"], listCodexHomeDirectories: { $0 == root ? [".codex-work"] : [] }
+        )
+
+        let swapCard = try XCTUnwrap(assembly.codexCards.first { $0.identity.accountID == "a" })
+        let homeCard = try XCTUnwrap(assembly.codexCards.first { $0.identity.accountID == "b" })
+        XCTAssertEqual(swapCard.writableAuthHomes, [])
+        XCTAssertEqual(homeCard.writableAuthHomes, [CodexHomeScanner.canonicalHome("\(root)/.codex-work")])
+
+        let http = RoutingHTTPClient { _ in
+            XCTFail("Swap-managed credentials must not rotate")
+            return HTTPResponse(statusCode: 500, headers: [:], body: Data())
+        }
+        let store = CodexAuthStore(
+            environment: FakeEnvironment(environment), files: files, keychain: FakeKeychain(), now: { Self.now },
+            expectedIdentity: swapCard.identity, additionalAuthHomes: swapCard.authHomes,
+            writableAuthHomes: Set(swapCard.writableAuthHomes), piCredentialSources: swapCard.piCredentialSources
+        )
+        let snapshot = await provider(store, http: http).refresh()
+
+        XCTAssertEqual(snapshot.errorCategory, .authExpired)
+        XCTAssertTrue(http.requests.isEmpty)
+        XCTAssertEqual(files.files["\(root)/alias/auth.json"], swapCredential)
+    }
+
+    /// A real directory tree so `resolvingSymlinksInPath` has something to resolve.
+    private func makeScratchDirectory(_ directories: [String], links: [String: String]) throws -> String {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CodexWritableHomeRefreshTests-\(UUID().uuidString)")
+        for directory in directories {
+            try FileManager.default.createDirectory(
+                at: root.appendingPathComponent(directory), withIntermediateDirectories: true
+            )
+        }
+        for (link, target) in links {
+            try FileManager.default.createSymbolicLink(
+                at: root.appendingPathComponent(link), withDestinationURL: root.appendingPathComponent(target)
+            )
+        }
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        return root.path
+    }
+}

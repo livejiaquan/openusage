@@ -103,6 +103,9 @@ struct CodexAuthStore: Sendable {
     var now: @Sendable () -> Date
     var expectedIdentity: CodexAccountIdentity?
     var additionalAuthHomes: [String]
+    /// Canonical homes (see `CodexHomeScanner.canonicalHome`) whose tokens this store may rotate and
+    /// write back. Empty for the plain card, which writes wherever it reads.
+    var writableAuthHomes: Set<String>
     var piCredentialSources: [CodexPiCredentialSource]
 
     init(
@@ -112,6 +115,7 @@ struct CodexAuthStore: Sendable {
         now: @escaping @Sendable () -> Date = Date.init,
         expectedIdentity: CodexAccountIdentity? = nil,
         additionalAuthHomes: [String] = [],
+        writableAuthHomes: Set<String> = [],
         piCredentialSources: [CodexPiCredentialSource] = []
     ) {
         self.environment = environment
@@ -120,6 +124,7 @@ struct CodexAuthStore: Sendable {
         self.now = now
         self.expectedIdentity = expectedIdentity
         self.additionalAuthHomes = additionalAuthHomes
+        self.writableAuthHomes = writableAuthHomes
         self.piCredentialSources = piCredentialSources
     }
 

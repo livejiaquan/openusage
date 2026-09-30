@@ -61,6 +61,7 @@ enum ProviderCatalog {
                     authStore: CodexAuthStore(
                         expectedIdentity: card.identity,
                         additionalAuthHomes: card.authHomes,
+                        writableAuthHomes: Set(card.writableAuthHomes),
                         piCredentialSources: card.piCredentialSources
                     ),
                     logUsageScanner: CodexLogUsageScanner(

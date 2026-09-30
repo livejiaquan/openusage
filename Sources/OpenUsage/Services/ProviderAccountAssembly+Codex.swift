@@ -5,6 +5,9 @@ struct CodexAccountCard: Equatable, Sendable {
     let identity: CodexAccountIdentity
     let displayName: String
     let authHomes: [String]
+    /// Canonical paths of the account's own Codex homes — never one xswap manages — whose tokens
+    /// OpenUsage may refresh and write back.
+    let writableAuthHomes: [String]
     let piCredentialSources: [CodexPiCredentialSource]
     let logHomes: [String]
     let allowsUnattributedHistory: Bool
@@ -132,6 +135,8 @@ extension ProviderAccountAssembly {
         let swapHomes = swaps.flatMap { [$0.mainHome, $0.home] }
             .map { CodexHomeScanner.standardizedHome($0, homeDirectory: homeDirectory) }
         let logHomes = Set(homeLogins.map(\.home)).union(swapHomes).sorted()
+        let managedHomes = Set(swaps.flatMap { [$0.mainHome, $0.home] }
+            .map { CodexHomeScanner.canonicalHome($0, homeDirectory: homeDirectory) })
         // Registry order is persistent; observation order follows the current default login.
         // Even an uncustomized layout must keep its cards in place after a switch and relaunch.
         let cards = records.compactMap { record -> CodexAccountCard? in
@@ -143,9 +148,12 @@ extension ProviderAccountAssembly {
             let matchingPi = piScan.logins.filter { $0.identity == identity }.map {
                 CodexPiCredentialSource(path: $0.authPath, providerID: $0.providerID)
             }
+            let writableHomes = Set(matchingHomes.map { CodexHomeScanner.canonicalHome($0, homeDirectory: homeDirectory) })
+                .subtracting(managedHomes)
             return CodexAccountCard(id: record.id, identity: identity,
                 displayName: labels[identity.key] ?? "Codex",
                 authHomes: Set(matchingHomes + matchingSwapHomes).sorted(),
+                writableAuthHomes: writableHomes.sorted(),
                 piCredentialSources: matchingPi,
                 logHomes: logHomes, allowsUnattributedHistory: allowsUnattributed)
         }
