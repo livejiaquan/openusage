@@ -8,6 +8,8 @@ final class RemoteUsageDeviceTests: XCTestCase {
         XCTAssertFalse(RemoteUsageDevice(name: "Lab", host: "lab;touch /tmp/x", platform: .wsl).isValid)
         XCTAssertFalse(RemoteUsageDevice(name: "Lab", host: "-oProxyCommand=evil", platform: .wsl).isValid)
         XCTAssertFalse(RemoteUsageDevice(name: "Lab", host: "lab", platform: .wsl, sshUser: "bad;whoami").isValid)
+        XCTAssertTrue(RemoteUsageDevice(name: "Office", host: "windows", platform: .windows, sshUser: "DOMAIN\\person").isValid)
+        XCTAssertTrue(RemoteUsageDevice(name: "Office", host: "windows", platform: .windows, sshUser: "person@example.org").isValid)
         XCTAssertFalse(RemoteUsageDevice(name: "Lab", host: "lab", platform: .wsl, sshPort: 0).isValid)
         XCTAssertFalse(RemoteUsageDevice(name: "Lab", host: "lab", platform: .wsl, wslDistribution: "Ubuntu;whoami").isValid)
     }

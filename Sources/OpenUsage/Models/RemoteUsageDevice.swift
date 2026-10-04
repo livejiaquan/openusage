@@ -49,7 +49,7 @@ struct RemoteUsageDevice: Codable, Hashable, Sendable, Identifiable {
     var isValid: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && host.range(of: #"^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$"#, options: .regularExpression) != nil
-            && (sshUser == nil || sshUser!.range(of: #"^[A-Za-z0-9_][A-Za-z0-9._-]{0,63}$"#, options: .regularExpression) != nil)
+            && (sshUser == nil || sshUser!.range(of: #"^[A-Za-z0-9_][A-Za-z0-9._@+\\-]{0,127}$"#, options: .regularExpression) != nil)
             && (sshPort == nil || (1...65_535).contains(sshPort!))
             && (wslDistribution == nil || wslDistribution!.range(of: #"^[A-Za-z0-9_][A-Za-z0-9._-]{0,63}$"#, options: .regularExpression) != nil)
             && (wslUser == nil || wslUser!.range(of: #"^[A-Za-z0-9_][A-Za-z0-9._-]{0,63}$"#, options: .regularExpression) != nil)
