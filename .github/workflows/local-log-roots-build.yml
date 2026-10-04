@@ -1,0 +1,33 @@
+name: Build additional log roots app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/extra-log-roots]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run scanner tests
+        run: swift test --filter 'AdditionalLogRootsTests|ClaudeLogUsageScannerTests|CodexLogUsageScannerTests'
+
+      - name: Build app bundle
+        run: ./script/build_and_run.sh build
+
+      - name: Archive app bundle
+        run: ditto -c -k --sequesterRsrc --keepParent dist/OpenUsage.app OpenUsage-local-log-roots.zip
+
+      - name: Upload app bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenUsage-local-log-roots
+          path: OpenUsage-local-log-roots.zip
+          if-no-files-found: error

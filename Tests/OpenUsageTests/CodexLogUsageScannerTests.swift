@@ -998,6 +998,27 @@ final class CodexLogUsageScannerTests: XCTestCase {
         XCTAssertEqual(second?.series.daily.reduce(0) { $0 + $1.totalTokens }, 200)
     }
 
+    func testScanReadsAdditionalSessionDirectoryDirectly() async throws {
+        let day = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3600))
+        let sessions = FileManager.default.temporaryDirectory
+            .appendingPathComponent("openusage-codex-extra-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: sessions) }
+        try FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
+        try CodexLogFixture.tokenCount(
+            timestamp: day, last: CodexLogFixture.usage(input: 100, output: 50), model: "gpt-5.2"
+        ).write(to: sessions.appendingPathComponent("wsl-session.jsonl"), atomically: true, encoding: .utf8)
+        let scanner = CodexLogUsageScanner(
+            environment: FakeEnvironment([:]),
+            homeDirectory: { FileManager.default.temporaryDirectory.appendingPathComponent("no-codex-home") },
+            incrementalScanner: IncrementalJSONLScanner<CodexLogUsageScanner.Event>(),
+            additionalSessionDirectories: [sessions.path]
+        )
+
+        let scan = await scanner.scan(pricing: fixedRates())
+
+        XCTAssertEqual(scan?.series.daily.reduce(0) { $0 + $1.totalTokens }, 150)
+    }
+
     /// Manual parity harness against the real logs on this machine: prints per-day totals to compare
     /// with `ccusage codex daily --json --offline`. Gated like the other live tests.
     func testParityAgainstRealLocalLogs() async throws {

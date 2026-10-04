@@ -13,8 +13,11 @@ enum ProviderCatalog {
         // Default provider order (see AGENTS.md "## Providers"): the three established providers first,
         // then every other provider alphabetically by display name.
         var providers: [ProviderRuntime]
+        let logRoots = AdditionalLogRoots.read()
         if claudeCards.isEmpty {
-            providers = [ClaudeProvider()]
+            providers = [ClaudeProvider(logUsageScanner: ClaudeLogUsageScanner(
+                additionalProjectDirectories: logRoots.claudeProjectDirectories
+            ))]
         } else {
             providers = claudeCards.map { card in
                 let identity = claudeIdentityKeys[card.id] ?? card.identityKey
@@ -22,7 +25,8 @@ enum ProviderCatalog {
                 let scanner = ClaudeLogUsageScanner(
                     accountUUID: user, organizationUUID: card.organizationID,
                     allowsUnattributedSessions: card.allowsUnattributedPiUsage,
-                    additionalConfigDirectories: card.additionalLogDirectories
+                    additionalConfigDirectories: card.additionalLogDirectories,
+                    additionalProjectDirectories: logRoots.claudeProjectDirectories
                 )
                 return ClaudeProvider(
                     provider: ClaudeProvider.makeProvider(
@@ -50,7 +54,8 @@ enum ProviderCatalog {
                 ),
                 logUsageScanner: CodexLogUsageScanner(
                     allowsUnattributedHistory: codex.allowsUnattributedHistory,
-                    additionalHomes: codex.plainAuthHomes
+                    additionalHomes: codex.plainAuthHomes,
+                    additionalSessionDirectories: logRoots.codexSessionDirectories
                 ),
                 allowsUnattributedHistory: codex.allowsUnattributedHistory
             ))
@@ -65,7 +70,8 @@ enum ProviderCatalog {
                     ),
                     logUsageScanner: CodexLogUsageScanner(
                         allowsUnattributedHistory: card.allowsUnattributedHistory,
-                        additionalHomes: card.logHomes
+                        additionalHomes: card.logHomes,
+                        additionalSessionDirectories: logRoots.codexSessionDirectories
                     ),
                     allowsUnattributedHistory: card.allowsUnattributedHistory
                 )

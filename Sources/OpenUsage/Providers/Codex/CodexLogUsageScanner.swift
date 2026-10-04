@@ -47,6 +47,7 @@ actor CodexLogUsageScanner {
     private let scanner: IncrementalJSONLScanner<Event>
     private let allowsUnattributedHistory: Bool
     private let additionalHomes: [String]
+    private let additionalSessionDirectories: [String]
 
     /// One turn's token usage, normalized from a `token_count` line (deltas already applied).
     /// `isFast` and `isUltrafast` record the service tier when the turn ran, tracked from the
@@ -80,13 +81,15 @@ actor CodexLogUsageScanner {
         homeDirectory: @escaping @Sendable () -> URL = { FileManager.default.homeDirectoryForCurrentUser },
         incrementalScanner: IncrementalJSONLScanner<Event>? = nil,
         allowsUnattributedHistory: Bool = true,
-        additionalHomes: [String] = []
+        additionalHomes: [String] = [],
+        additionalSessionDirectories: [String] = []
     ) {
         self.environment = environment
         self.homeDirectory = homeDirectory
         self.scanner = incrementalScanner ?? Self.sharedScanner
         self.allowsUnattributedHistory = allowsUnattributedHistory
         self.additionalHomes = additionalHomes
+        self.additionalSessionDirectories = additionalSessionDirectories
     }
 
     /// Scan the last `daysBack` days of Codex rollouts. Returns `nil` when no Codex home or no
@@ -102,10 +105,11 @@ actor CodexLogUsageScanner {
         }
         let homes = codexHomes()
         let since = JSONLScanning.sinceDate(daysBack: daysBack, now: now)
-        let identityPaths = Set(homes.map { $0.resolvingSymlinksInPath().standardizedFileURL.path })
+        let extra = additionalSessionDirectories.map { URL(fileURLWithPath: expandHome($0)) }
+        let identityPaths = Set((homes + extra).map { $0.resolvingSymlinksInPath().standardizedFileURL.path })
             .sorted()
         let identity = identityPaths.isEmpty ? "no-codex-home" : identityPaths.joined(separator: "\n")
-        let files = Self.sessionFiles(homes: homes)
+        let files = Self.sessionFiles(homes: homes, additionalSessions: extra)
         guard !files.isEmpty else {
             _ = await scanner.items(
                 from: [], since: since, cacheIdentity: identity, parse: Self.parseFile
@@ -142,9 +146,12 @@ actor CodexLogUsageScanner {
     /// Every rollout `*.jsonl` under each home's `sessions/` and `archived_sessions/` (a home with
     /// neither is scanned directly, ccusage's fallback). When both dirs of one home contain the same
     /// relative path, the `sessions/` copy wins — an archived duplicate must not double-count.
-    private static func sessionFiles(homes: [URL]) -> [JSONLScanning.DiscoveredFile] {
+    private static func sessionFiles(
+        homes: [URL], additionalSessions: [URL]
+    ) -> [JSONLScanning.DiscoveredFile] {
         var files: [JSONLScanning.DiscoveredFile] = []
         var seenDirs: Set<String> = []
+        var seenFiles: Set<String> = []
         for home in homes {
             var seenRelative: Set<String> = []
             var sourceDirs: [URL] = []
@@ -164,9 +171,18 @@ actor CodexLogUsageScanner {
             for dir in sourceDirs.map({ $0.resolvingSymlinksInPath() }) where seenDirs.insert(dir.path).inserted {
                 for file in JSONLScanning.jsonlFiles(under: dir) {
                     let relative = String(file.path.dropFirst(dir.path.count))
-                    guard seenRelative.insert(relative).inserted else { continue }
+                    guard seenRelative.insert(relative).inserted,
+                          seenFiles.insert(file.path).inserted else { continue }
                     files.append(file)
                 }
+            }
+        }
+        for directory in additionalSessions {
+            let resolved = directory.resolvingSymlinksInPath()
+            guard seenDirs.insert(resolved.path).inserted else { continue }
+            for file in JSONLScanning.jsonlFiles(under: resolved)
+            where seenFiles.insert(file.path).inserted {
+                files.append(file)
             }
         }
         return files

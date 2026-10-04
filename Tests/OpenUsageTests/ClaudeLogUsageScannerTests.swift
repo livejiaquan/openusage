@@ -854,6 +854,26 @@ final class ClaudeLogUsageScannerTests: XCTestCase {
         XCTAssertEqual(scan.series.daily[0].totalTokens, 15)
     }
 
+    func testScanReadsAdditionalProjectDirectoryDirectly() async throws {
+        let now = Date()
+        let config = try ClaudeLogFixture.makeHome(files: [
+            "project-a/session.jsonl": ClaudeLogFixture.usageLine(
+                timestamp: OpenUsageISO8601.string(from: now), input: 10, output: 5, costUSD: 0.01
+            )
+        ])
+        let scanner = ClaudeLogUsageScanner(
+            environment: FakeEnvironment([:]),
+            homeDirectory: { FileManager.default.temporaryDirectory.appendingPathComponent("no-claude-home") },
+            incrementalScanner: IncrementalJSONLScanner<Entry>(),
+            additionalProjectDirectories: [config.appendingPathComponent("projects").path]
+        )
+
+        let result = await scanner.scan(now: now, pricing: pricing)
+        let scan = try XCTUnwrap(result)
+        XCTAssertEqual(scan.series.daily.count, 1)
+        XCTAssertEqual(scan.series.daily[0].totalTokens, 15)
+    }
+
     func testScanFollowsSymlinkedProjectsDir() async throws {
         let now = Date()
         let timestamp = OpenUsageISO8601.string(from: now)

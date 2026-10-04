@@ -73,6 +73,9 @@ when it cannot form its own card and the plain Codex card is all that shows.
 
 ## The spend tiles
 
+Read-only copies of sessions from another computer can be included with
+[additional local log roots](../local-log-roots.md). The multi-account history rule still applies.
+
 With multiple Codex accounts, spending without a reliable account owner is excluded, including
 previously cached spending. Excluded history is removed before cached data appears or syncs,
 even if the login has expired or the usage request fails. Cached live limits keep their original

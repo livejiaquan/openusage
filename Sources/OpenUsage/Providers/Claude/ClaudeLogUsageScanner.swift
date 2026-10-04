@@ -29,6 +29,7 @@ actor ClaudeLogUsageScanner {
     private let organizationID: String?
     private let accountID: String?
     private let additionalConfigDirectories: [String]
+    private let additionalProjectDirectories: [String]
     private let allowsUnattributedSessions: Bool
     /// The identity Claude Code is signed in to right now, re-read every scan. The card matching it
     /// also owns the default home's sessions that record no account, which is how plain terminal
@@ -78,6 +79,7 @@ actor ClaudeLogUsageScanner {
         allowsUnattributedSessions: Bool = false,
         currentDefaultLoginIdentity: (@Sendable () -> String?)? = nil,
         additionalConfigDirectories: [String] = [],
+        additionalProjectDirectories: [String] = [],
         readOwnershipData: @escaping @Sendable (URL) throws -> Data = {
             try Data(contentsOf: $0, options: .mappedIfSafe)
         }
@@ -90,6 +92,7 @@ actor ClaudeLogUsageScanner {
         self.organizationID = organizationUUID?.lowercased()
         self.accountID = accountUUID?.lowercased()
         self.additionalConfigDirectories = additionalConfigDirectories
+        self.additionalProjectDirectories = additionalProjectDirectories
         self.allowsUnattributedSessions = allowsUnattributedSessions
         self.currentDefaultLoginIdentity = currentDefaultLoginIdentity ?? {
             let observer = DefaultAccountObserver(environment: environment, homeDirectory: homeDirectory)
@@ -113,14 +116,17 @@ actor ClaudeLogUsageScanner {
         let since = JSONLScanning.sinceDate(daysBack: daysBack, now: now)
         let cacheIdentity = parseCacheIdentity()
         let roots = claudeRoots()
-        guard !roots.isEmpty else {
+        guard !roots.isEmpty || !additionalProjectDirectories.isEmpty else {
             _ = await scanner.items(
                 from: [], since: since, cacheIdentity: cacheIdentity, parse: Self.parseFile
             )
             return nil
         }
 
-        var files = Self.usageFiles(under: roots)
+        var files = Self.usageFiles(
+            under: roots,
+            additionalProjects: additionalProjectDirectories.map { URL(fileURLWithPath: expandHome($0)) }
+        )
         if organizationID != nil || claimsDefaultHome {
             files = ownedUsageFiles(files, claimsDefaultHome: claimsDefaultHome)
         }
@@ -148,7 +154,9 @@ actor ClaudeLogUsageScanner {
     private func parseCacheIdentity() -> String {
         if let cacheIdentityOverride { return cacheIdentityOverride }
         let home = homeDirectory().resolvingSymlinksInPath().path
-        let allRoots = defaultConfigRoots() + additionalConfigDirectories.map { URL(fileURLWithPath: expandHome($0)) }
+        let allRoots = defaultConfigRoots()
+            + additionalConfigDirectories.map { URL(fileURLWithPath: expandHome($0)) }
+            + additionalProjectDirectories.map { URL(fileURLWithPath: expandHome($0)) }
         let roots = Set(allRoots.map { $0.resolvingSymlinksInPath().standardizedFileURL.path })
             .sorted()
             .joined(separator: "\n")
@@ -272,9 +280,13 @@ actor ClaudeLogUsageScanner {
 
     /// Every `*.jsonl` under each root's `projects/`, path-sorted so the dedup pass (keep-first wins)
     /// is deterministic — the same order ccusage scans in.
-    private static func usageFiles(under roots: [URL]) -> [JSONLScanning.DiscoveredFile] {
-        roots
-            .flatMap { JSONLScanning.jsonlFiles(under: $0.appendingPathComponent("projects")) }
+    private static func usageFiles(
+        under roots: [URL], additionalProjects: [URL]
+    ) -> [JSONLScanning.DiscoveredFile] {
+        var seen: Set<String> = []
+        return (roots.map { $0.appendingPathComponent("projects") } + additionalProjects)
+            .flatMap { JSONLScanning.jsonlFiles(under: $0) }
+            .filter { seen.insert($0.path).inserted }
             .sorted { $0.path < $1.path }
     }
 
