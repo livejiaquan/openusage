@@ -43,6 +43,12 @@ class RemoteUsageExportTests(unittest.TestCase):
                         "last_token_usage": {"input_tokens": 30, "output_tokens": 5}}}},
                 ]
                 codex.write_text("\n".join(json.dumps(item) for item in lines) + "\n")
+                archived = home / ".codex/archived_sessions/2026/10/04/rollout.jsonl"
+                archived.parent.mkdir(parents=True)
+                archived.write_text(json.dumps({
+                    "timestamp": when, "type": "event_msg", "payload": {"type": "token_count", "info": {
+                        "last_token_usage": {"input_tokens": 999, "output_tokens": 999}}}
+                }) + "\n")
                 claude.write_text(json.dumps({
                     "timestamp": when, "sessionId": "session", "requestId": "request",
                     "version": "2.1.0", "prompt": "SECRET_CONVERSATION_TEXT",

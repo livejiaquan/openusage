@@ -264,16 +264,33 @@ def roots(provider):
 def discover(provider):
     seen = set()
     result = []
-    for root in roots(provider):
-        if not root.is_dir():
-            continue
-        for path in sorted(root.rglob("*.jsonl")):
-            if not path.is_file():
+    if provider == "codex":
+        raw = os.environ.get("CODEX_HOME", "")
+        homes = [pathlib.Path(part.strip()).expanduser() for part in raw.split(",") if part.strip()] if raw.strip() else [pathlib.Path.home() / ".codex"]
+        for home in homes:
+            relative_seen = set()
+            directories = [folder for folder in (home / "sessions", home / "archived_sessions") if folder.is_dir()] or [home]
+            for root in directories:
+                for path in sorted(root.rglob("*.jsonl")):
+                    if not path.is_file():
+                        continue
+                    relative = str(path.relative_to(root))
+                    resolved = str(path.resolve())
+                    if relative not in relative_seen and resolved not in seen:
+                        relative_seen.add(relative)
+                        seen.add(resolved)
+                        result.append(path)
+    else:
+        for root in roots(provider):
+            if not root.is_dir():
                 continue
-            resolved = str(path.resolve())
-            if resolved not in seen:
-                seen.add(resolved)
-                result.append(path)
+            for path in sorted(root.rglob("*.jsonl")):
+                if not path.is_file():
+                    continue
+                resolved = str(path.resolve())
+                if resolved not in seen:
+                    seen.add(resolved)
+                    result.append(path)
     return result
 
 
