@@ -200,6 +200,9 @@ enum UsageHistorySnapshotRenderer {
         combinedSourceName: String = "Across your Macs"
     ) -> ProviderSnapshot {
         var result = snapshot
+        // The rendered snapshot represents the selected device scope. `WidgetDataStore` exports
+        // from its separate `localSnapshots`, so keeping this union here cannot echo into iCloud.
+        result.usageHistory = history
         result.lines.removeAll { historyLabels.contains($0.label) }
         let baseNote = combined ? "\(combinedSourceName) · \(descriptor.sourceNote)" : descriptor.sourceNote
         SpendTileMapper.appendTokenUsage(
