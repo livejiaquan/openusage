@@ -25,7 +25,7 @@ struct RemoteDevicesSettingsSection: View {
                 HStack {
                     Picker("System", selection: $platform) {
                         ForEach(RemoteUsageDevice.Platform.allCases, id: \.self) { option in
-                            Text(option.rawValue).tag(option)
+                            Text(option == .wsl ? "WSL" : option.rawValue).tag(option)
                         }
                     }
                     Button("Add Device") {
