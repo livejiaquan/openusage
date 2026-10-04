@@ -37,19 +37,17 @@ struct RemoteDevicesSettingsSection: View {
                 .textFieldStyle(.roundedBorder)
                 Text("Leave SSH username blank to use your SSH config or Mac username.")
                     .font(.caption2).foregroundStyle(.secondary)
-                if platform == .wsl {
-                    HStack {
-                        TextField("WSL distribution (default)", text: $wslDistribution)
-                        TextField("Linux username (default)", text: $wslUser)
+                Picker("System", selection: $platform) {
+                    ForEach(RemoteUsageDevice.Platform.allCases, id: \.self) { option in
+                        Text(option == .wsl ? "WSL" : option.rawValue).tag(option)
                     }
+                }
+                if platform == .wsl {
+                    TextField("WSL distribution (default)", text: $wslDistribution)
+                    TextField("Linux username (default)", text: $wslUser)
                     .textFieldStyle(.roundedBorder)
                 }
                 HStack {
-                    Picker("System", selection: $platform) {
-                        ForEach(RemoteUsageDevice.Platform.allCases, id: \.self) { option in
-                            Text(option == .wsl ? "WSL" : option.rawValue).tag(option)
-                        }
-                    }
                     Button(editingID == nil ? "Add Device" : "Save Changes") {
                         Task {
                             busy = true
