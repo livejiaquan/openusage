@@ -196,11 +196,12 @@ enum UsageHistorySnapshotRenderer {
         history: ProviderUsageHistory,
         descriptor: UsageHistoryDescriptor,
         now: Date = Date(),
-        combined: Bool = true
+        combined: Bool = true,
+        combinedSourceName: String = "Across your Macs"
     ) -> ProviderSnapshot {
         var result = snapshot
         result.lines.removeAll { historyLabels.contains($0.label) }
-        let baseNote = combined ? "Across your Macs · \(descriptor.sourceNote)" : descriptor.sourceNote
+        let baseNote = combined ? "\(combinedSourceName) · \(descriptor.sourceNote)" : descriptor.sourceNote
         SpendTileMapper.appendTokenUsage(
             history.series,
             to: &result.lines,

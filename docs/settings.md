@@ -20,6 +20,10 @@ same iCloud account. Settings shows the five-minute write cadence and each Mac's
 time; it also reports unavailable iCloud, loading, write, and malformed-file states. See
 [iCloud Sync](icloud-sync.md) for what is included and which surfaces use the combined values.
 
+## Remote Devices
+
+Add an SSH-accessible Linux, Windows, Windows WSL, or Mac source for Claude Code and Codex history. The device row shows the last good update or a connection error, and offers Refresh and Remove. The dashboard's **Usage From** menu switches between all devices, this Mac, and each imported device. See [Remote Devices](remote-devices.md) for setup, data handling, and duplicate-source guidance.
+
 ## Appearance
 
 | Setting | Options | What it does |
@@ -71,7 +75,7 @@ All three alerts default off. The first time you turn one on, OpenUsage asks for
 
 See [Logging](logging.md) for the full behavior: subsystem tags, the file size cap, and the guarantee that secrets are never written.
 
-**Reset All Settings…** restores every setting on this screen to its default — appearance, usage display, notifications, privacy, log level, the global shortcut (cleared), Launch at Login (turned off), iCloud sync (turned off), and the update preferences (stable channel, automatic checks on) — and also resets all customization, exactly like Customize's Reset All: default layout, order, and menu-bar stars, with providers turned back on for the tools you have installed. The reset cannot be undone.
+**Reset All Settings…** restores every setting on this screen to its default — appearance, usage display, notifications, privacy, log level, the global shortcut (cleared), Launch at Login (turned off), iCloud sync (turned off), remote devices (removed), and the update preferences (stable channel, automatic checks on) — and also resets all customization, exactly like Customize's Reset All: default layout, order, and menu-bar stars, with providers turned back on for the tools you have installed. The reset cannot be undone.
 
 Not touched: provider logins and API keys, cached usage data, and your extra-analytics choice. Turning iCloud sync off as part of the reset works exactly like flipping its toggle off: this Mac's synced history is removed from the shared iCloud data, and your other Macs keep their own.
 

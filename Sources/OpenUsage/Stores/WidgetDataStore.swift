@@ -101,6 +101,15 @@ final class WidgetDataStore {
     /// Wired by `ICloudUsageSyncStore`; debounced there so a concurrent provider batch produces one file.
     @ObservationIgnored var onLocalHistoryChanged: (@MainActor () -> Void)?
     @ObservationIgnored private var peerHistoryDocuments: [UsageHistoryDocument] = []
+    @ObservationIgnored private var remoteHistoryDocuments: [UsageHistoryDocument] = []
+    private static let historyScopeKey = "openusage.history.scope.v1"
+    /// `all`, `local`, or a device ID. This filters history only; live account meters stay local.
+    var historyScopeID: String {
+        didSet {
+            defaults.set(historyScopeID, forKey: Self.historyScopeKey)
+            rebuildRenderedSnapshots()
+        }
+    }
 
     /// Global meter style: whether every bounded tile (and the menu-bar value) renders as "used" or
     /// "left/remaining". Persisted so the choice survives relaunch; defaults to `.remaining`.
@@ -128,6 +137,7 @@ final class WidgetDataStore {
         meterStyle = .remaining
         resetDisplayMode = .relative
         alwaysShowPacing = false
+        historyScopeID = "all"
     }
 
     init(
@@ -163,6 +173,7 @@ final class WidgetDataStore {
                 await AppNotifications.shared.post(idPrefix: idPrefix, title: title, subtitle: subtitle, body: body)
             }
         self.providerIdentityKeys = providerIdentityKeys
+        self.historyScopeID = defaults.string(forKey: Self.historyScopeKey) ?? "all"
         self.meterStyle = defaults.enumValue(forKey: Self.meterStyleKey, default: .remaining)
         self.resetDisplayMode = defaults.enumValue(forKey: Self.resetDisplayModeKey, default: .relative)
         self.alwaysShowPacing = defaults.bool(forKey: Self.alwaysShowPacingKey)
@@ -420,6 +431,18 @@ final class WidgetDataStore {
         rebuildRenderedSnapshots()
     }
 
+    func setRemoteHistoryDocuments(_ documents: [UsageHistoryDocument]) {
+        remoteHistoryDocuments = UsageHistoryDocument.newestByDevice(documents)
+        rebuildRenderedSnapshots()
+    }
+
+    var historyScopeOptions: [(id: String, name: String)] {
+        [("all", "All Devices"), ("local", "This Mac")]
+            + UsageHistoryDocument.newestByDevice(peerHistoryDocuments + remoteHistoryDocuments)
+                .sorted { $0.deviceName.localizedStandardCompare($1.deviceName) == .orderedAscending }
+                .map { ($0.deviceID, $0.deviceName) }
+    }
+
     func localHistoryDocument(deviceID: String, deviceName: String, updatedAt: Date = Date()) -> UsageHistoryDocument {
         var providers: [String: ProviderUsageHistory] = [:]
         var identities: [String: String] = [:]
@@ -477,39 +500,52 @@ final class WidgetDataStore {
     }
 
     private func rebuildRenderedSnapshots() {
-        guard !peerHistoryDocuments.isEmpty else {
+        let allPeers = UsageHistoryDocument.newestByDevice(peerHistoryDocuments + remoteHistoryDocuments)
+        if historyScopeID != "all" && historyScopeID != "local"
+            && !allPeers.contains(where: { $0.deviceID == historyScopeID }) {
+            historyScopeID = "all"
+            return
+        }
+        if historyScopeID == "local" || (historyScopeID == "all" && allPeers.isEmpty) {
             snapshots = localSnapshots
             return
         }
         let renderDate = now()
+        let selectedPeers = historyScopeID == "all" ? allPeers
+            : allPeers.filter { $0.deviceID == historyScopeID }
+        let sourceSnapshots = historyScopeID == "all" ? localSnapshots
+            : localSnapshots.mapValues(UsageHistorySnapshotRenderer.removingHistory)
         let enabledDescriptors = registry.historyDescriptorsByProvider.reduce(
             into: [String: UsageHistoryDescriptor]()
         ) { result, entry in
             if isProviderEnabled(entry.key) { result[entry.key] = entry.value }
         }
         let merged = UsageHistoryAggregator.merged(
-            localSnapshots: localSnapshots,
-            peerDocuments: peerHistoryDocuments,
+            localSnapshots: sourceSnapshots,
+            peerDocuments: selectedPeers,
             descriptors: enabledDescriptors,
             providerIdentityKeys: providerIdentityKeys,
             now: renderDate
         )
-        var rendered = localSnapshots
+        var rendered = sourceSnapshots
         for (providerID, history) in merged {
             guard let descriptor = registry.historyDescriptorsByProvider[providerID],
                   let provider = registry.provider(id: providerID)
             else { continue }
-            let local = localSnapshots[providerID] ?? ProviderSnapshot(
+            let local = sourceSnapshots[providerID] ?? ProviderSnapshot(
                 providerID: providerID,
                 displayName: provider.displayName,
                 lines: [],
-                refreshedAt: peerHistoryDocuments.map(\.updatedAt).max() ?? renderDate
+                refreshedAt: selectedPeers.map(\.updatedAt).max() ?? renderDate
             )
             rendered[providerID] = UsageHistorySnapshotRenderer.render(
                 local: local,
                 history: history,
                 descriptor: descriptor,
-                now: renderDate
+                now: renderDate,
+                combinedSourceName: historyScopeID == "all"
+                    ? (remoteHistoryDocuments.isEmpty ? "Across your Macs" : "Across your devices")
+                    : "On \(selectedPeers.first?.deviceName ?? "remote device")"
             )
         }
         snapshots = rendered

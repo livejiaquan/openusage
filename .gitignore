@@ -2,6 +2,7 @@
 .build/
 dist/
 node_modules/
+__pycache__/
 *.log
 .agents/worktrees/
 .agents/scheduled_tasks.lock

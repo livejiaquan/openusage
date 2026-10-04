@@ -47,6 +47,31 @@ struct DashboardContentView: View {
 
     @ViewBuilder
     private var widgetContent: some View {
+        if container.dataStore.historyScopeOptions.count > 2 {
+            Menu {
+                ForEach(container.dataStore.historyScopeOptions.map { $0.id }, id: \.self) { id in
+                    Button {
+                        container.dataStore.historyScopeID = id
+                    } label: {
+                        if container.dataStore.historyScopeID == id {
+                            Label(scopeName(id), systemImage: "checkmark")
+                        } else {
+                            Text(scopeName(id))
+                        }
+                    }
+                }
+            } label: {
+                HStack {
+                    Text("Usage From")
+                    Spacer()
+                    Text(scopeName(container.dataStore.historyScopeID))
+                    Image(systemName: "chevron.down")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            .padding(.bottom, density.sectionSpacing)
+        }
         // The cross-provider Total Spend ring stays visible whenever the user allows it and an enabled
         // provider can track spend, even before fresh data arrives or when every metric row is hidden.
         if showTotalSpend, layout.hasSpendCapableProvider {
@@ -67,5 +92,9 @@ struct DashboardContentView: View {
                 reorderLift: $reorderLift
             )
         }
+    }
+
+    private func scopeName(_ id: String) -> String {
+        container.dataStore.historyScopeOptions.first(where: { $0.id == id })?.name ?? "All Devices"
     }
 }

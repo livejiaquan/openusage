@@ -12,6 +12,8 @@ final class AppContainer {
     let dataStore: WidgetDataStore
     /// Opt-in private iCloud document sync for additive machine-local daily history.
     let iCloudSync: ICloudUsageSyncStore
+    /// Pulls usage metadata from user-added SSH devices and keeps only daily summaries here.
+    let remoteDevices: RemoteUsageDeviceStore
     /// Single source of truth for which providers the user has turned off. Both stores consult it (via
     /// injected closures) and the Customize provider list drives it.
     let enablement: ProviderEnablementStore
@@ -98,6 +100,7 @@ final class AppContainer {
             providerIdentityKeys: accountAssembly.identityKeysByCard
         )
         let iCloudSync = ICloudUsageSyncStore(dataStore: dataStore)
+        let remoteDevices = RemoteUsageDeviceStore(dataStore: dataStore)
         // Re-enabling a provider should fetch it promptly, so clear any leftover failure backoff before
         // the enablement wake refreshes. `weak` breaks the cycle (dataStore already captures enablement).
         enablement.onProviderEnabled = { [weak dataStore] id in dataStore?.clearFailureBackoff(for: id) }
@@ -130,6 +133,7 @@ final class AppContainer {
         self.layout = layout
         self.dataStore = dataStore
         self.iCloudSync = iCloudSync
+        self.remoteDevices = remoteDevices
 
         // The resets popover's claim service, sharing the Codex provider's credential loading and HTTP
         // client so the claim's auth can't drift from the provider's. A successful claim forces a Codex
@@ -214,7 +218,9 @@ final class AppContainer {
                 errors: dataStore.providerErrors
             )
         })
-        self.refreshTask = Self.startPeriodicRefresh(dataStore: dataStore, telemetry: telemetry)
+        self.refreshTask = Self.startPeriodicRefresh(
+            dataStore: dataStore, remoteDevices: remoteDevices, telemetry: telemetry
+        )
         localAPI.start()
         // Become the notification-center delegate so banners show while frontmost — a menu-bar accessory
         // effectively always is. Notification authorization is requested the first time a trigger is
@@ -257,6 +263,7 @@ final class AppContainer {
         // Same as flipping the Settings toggle off: stops syncing and removes this Mac's document
         // from the shared iCloud container (peers keep their own history).
         iCloudSync.enabled = false
+        remoteDevices.removeAll()
         // Removing an `@AppStorage` key restores its declared default; the Settings screen's
         // `@AppStorage` properties observe the change. New settings must be added here.
         for key in [
@@ -290,11 +297,14 @@ final class AppContainer {
     /// Sparkle's update bookkeeping, and unrelated global-domain changes from other processes. Waking on
     /// that, with no minimum interval before re-refreshing, collapsed the fixed 5-minute cadence into a
     /// refresh storm.
-    private static func startPeriodicRefresh(dataStore: WidgetDataStore, telemetry: TelemetryRecorder) -> Task<Void, Never> {
+    private static func startPeriodicRefresh(
+        dataStore: WidgetDataStore, remoteDevices: RemoteUsageDeviceStore, telemetry: TelemetryRecorder
+    ) -> Task<Void, Never> {
         Task {
             let wakeSignal = RefreshWakeSignal()
             while !Task.isCancelled {
                 await dataStore.refreshAll()
+                await remoteDevices.refreshAll()
                 // Re-evaluate quota pace milestones every tick — after the refresh so it sees fresh data,
                 // and on every loop (not just on a fetch) so pace worsening from elapsed time alone still
                 // alerts even with the popover closed.

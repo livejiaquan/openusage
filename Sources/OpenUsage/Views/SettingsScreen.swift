@@ -55,6 +55,7 @@ struct SettingsScreen: View {
         VStack(alignment: .leading, spacing: density.sectionSpacing) {
             generalSection
             ICloudSyncSettingsSection(sync: container.iCloudSync)
+            RemoteDevicesSettingsSection(store: container.remoteDevices)
             appearanceSection
             usageDisplaySection
             notificationsSection

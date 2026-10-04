@@ -32,7 +32,8 @@ let package = Package(
                 .copy("Resources/ProviderIcons"),
                 .copy("Resources/pricing_supplement.json"),
                 .copy("Resources/pricing_litellm_snapshot.json"),
-                .copy("Resources/pricing_models_dev_snapshot.json")
+                .copy("Resources/pricing_models_dev_snapshot.json"),
+                .copy("Resources/remote_usage_export.py")
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
