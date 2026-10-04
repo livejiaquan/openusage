@@ -6,6 +6,7 @@ No prompts, responses, credentials, or raw JSONL lines enter stdout or the cache
 
 import datetime as dt
 import json
+import math
 import os
 import pathlib
 import re
@@ -13,7 +14,7 @@ import sys
 import tempfile
 
 SCHEMA = "openusage.remote-events.v1"
-CACHE_SCHEMA = 1
+CACHE_SCHEMA = 2
 MAX_LINE = 8 * 1024 * 1024
 UTC = dt.timezone.utc
 
@@ -96,6 +97,8 @@ def parse_codex(path):
             try:
                 obj = json.loads(line)
             except (ValueError, UnicodeDecodeError):
+                continue
+            if not isinstance(obj, dict):
                 continue
             payload = obj.get("payload")
             if not isinstance(payload, dict):
@@ -188,6 +191,8 @@ def parse_claude(path):
                 obj = json.loads(line)
             except (ValueError, UnicodeDecodeError):
                 continue
+            if not isinstance(obj, dict):
+                continue
             when = stamp(obj.get("timestamp"))
             message = obj.get("message")
             if when is None or not isinstance(message, dict):
@@ -212,10 +217,14 @@ def parse_claude(path):
                 continue
             model = message.get("model")
             model = model if isinstance(model, str) and model != "<synthetic>" else None
+            cost = obj.get("costUSD")
+            cost = cost if isinstance(cost, (int, float)) and math.isfinite(cost) and cost >= 0 else None
+            message_id = message.get("id") if isinstance(message.get("id"), str) else None
+            request_id = obj.get("requestId") if isinstance(obj.get("requestId"), str) else None
             base = {"timestamp": when - 978307200, "tokens": tokens,
-                    "messageID": message.get("id"), "requestID": obj.get("requestId"),
+                    "messageID": message_id, "requestID": request_id,
                     "isSidechain": obj.get("isSidechain") is True, "hasSpeed": "speed" in usage,
-                    "costUSD": obj.get("costUSD") if isinstance(obj.get("costUSD"), (int, float)) else None,
+                    "costUSD": cost,
                     "model": model}
             entries.append(base)
             advisor_index = 0
@@ -294,7 +303,7 @@ def main():
                 updated[key] = {"size": stat.st_size, "mtime": stat.st_mtime_ns, "events": events}
                 result[provider].extend(event for event in events if event["timestamp"] >= cutoff)
             except OSError as error:
-                print(f"Could not read a {provider} session: {error}", file=sys.stderr)
+                raise SystemExit(f"Could not read a {provider} session: {error}") from error
     # Cache contains only normalized usage metadata and is private to the remote user.
     try:
         cache_dir.mkdir(mode=0o700, parents=True, exist_ok=True)

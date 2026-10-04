@@ -9,7 +9,7 @@ final class RemoteUsageDeviceTests: XCTestCase {
         XCTAssertFalse(RemoteUsageDevice(name: "Lab", host: "-oProxyCommand=evil", platform: .wsl).isValid)
     }
 
-    func testRemoteEventsUseCanonicalCodexPricing() async throws {
+    func testRemoteEventsUseCanonicalCodexPricing() throws {
         let now = Date()
         let device = RemoteUsageDevice(name: "Lab WSL", host: "lab", platform: .wsl)
         let rates = ModelRates(inputPerMillion: 1_000_000, outputPerMillion: 2_000_000,
@@ -26,7 +26,7 @@ final class RemoteUsageDeviceTests: XCTestCase {
             claude: []
         )
 
-        let document = await SSHRemoteUsageClient.document(
+        let document = SSHRemoteUsageClient.document(
             device: device, events: events, pricing: pricing, now: now
         )
 
@@ -59,7 +59,15 @@ final class RemoteUsageDeviceTests: XCTestCase {
         let remote = UsageHistoryDocument(deviceID: "ssh-lab", deviceName: "Lab WSL",
                                           updatedAt: .now, providers: ["codex": history(20)])
 
+        XCTAssertEqual(store.historyScopeID, "all")
+        XCTAssertNotNil(registry.historyDescriptorsByProvider["codex"])
+        XCTAssertEqual(UsageHistoryAggregator.merged(
+            localSnapshots: store.localSnapshots, peerDocuments: [remote],
+            descriptors: registry.historyDescriptorsByProvider
+        )["codex"]?.series.daily.first?.totalTokens, 30)
+
         store.setRemoteHistoryDocuments([remote])
+        XCTAssertTrue(store.historyScopeOptions.contains { $0.id == "ssh-lab" })
         XCTAssertEqual(store.snapshots["codex"]?.usageHistory?.series.daily.first?.totalTokens, 30)
         store.historyScopeID = "ssh-lab"
         XCTAssertEqual(store.snapshots["codex"]?.usageHistory?.series.daily.first?.totalTokens, 20)

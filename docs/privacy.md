@@ -51,7 +51,9 @@ Desktop's rotating refresh token and never modifies Desktop's config, cookies, o
 
 ## Other network requests
 
-Besides the provider API calls the vendor's own tools would make, OpenUsage fetches public [model price lists](pricing.md) about once an hour (from `raw.githubusercontent.com`, `models.dev`, and this project's GitHub Pages). These are plain downloads of public data — they carry no usage, log, or account information, and they run regardless of the analytics toggle. The spend tiles are computed from local CLI logs entirely on your Mac; no log data ever leaves it.
+Besides the provider API calls the vendor's own tools would make, OpenUsage fetches public [model price lists](pricing.md) about once an hour (from `raw.githubusercontent.com`, `models.dev`, and this project's GitHub Pages). These are plain downloads of public data — they carry no usage, log, or account information, and they run regardless of the analytics toggle. Spend from this Mac's CLI logs is calculated locally; those raw logs are not sent to a server.
+
+If you add a [Remote Device](remote-devices.md), OpenUsage sends a bundled parser over your existing SSH connection. That machine returns usage metadata (timestamps, model names, token counts, and deduplication IDs), not conversation text or raw log files. OpenUsage keeps only a daily summary of that device on this Mac. The remote machine maintains its own private parsed-event cache; no usage data from this feature is sent to OpenUsage's analytics service.
 
 To avoid re-reading unchanged Claude, Codex, and pi logs after every relaunch, OpenUsage keeps their
 parsed usage events in `~/Library/Application Support/OpenUsage/log-scan-cache/`. These records contain

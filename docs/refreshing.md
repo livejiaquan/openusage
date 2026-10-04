@@ -10,6 +10,7 @@
 - With [iCloud Sync](icloud-sync.md) on, a refresh batch writes one machine-history file after the whole
   batch finishes. Manual provider refreshes write after that provider finishes, and adjacent changes are
   debounced into one write.
+- Enabled [Remote Devices](remote-devices.md) are pulled over SSH during the same refresh cycle. Each device can also be refreshed from Settings. An offline device keeps its last good daily summary and displays its connection error there.
 
 ## Caching
 
