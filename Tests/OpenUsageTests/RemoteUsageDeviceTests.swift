@@ -7,6 +7,31 @@ final class RemoteUsageDeviceTests: XCTestCase {
         XCTAssertTrue(RemoteUsageDevice(name: "Linux", host: "compute.example.org", platform: .linux).isValid)
         XCTAssertFalse(RemoteUsageDevice(name: "Lab", host: "lab;touch /tmp/x", platform: .wsl).isValid)
         XCTAssertFalse(RemoteUsageDevice(name: "Lab", host: "-oProxyCommand=evil", platform: .wsl).isValid)
+        XCTAssertFalse(RemoteUsageDevice(name: "Lab", host: "lab", platform: .wsl, sshUser: "bad;whoami").isValid)
+        XCTAssertFalse(RemoteUsageDevice(name: "Lab", host: "lab", platform: .wsl, sshPort: 0).isValid)
+        XCTAssertFalse(RemoteUsageDevice(name: "Lab", host: "lab", platform: .wsl, wslDistribution: "Ubuntu;whoami").isValid)
+    }
+
+    func testExplicitWindowsAccountAndWSLUserAreSeparate() {
+        let device = RemoteUsageDevice(name: "Lab WSL", host: "100.115.179.72", platform: .wsl,
+                                       sshUser: "smilelab", sshPort: 2222,
+                                       wslDistribution: "Ubuntu", wslUser: "linuxuser")
+        XCTAssertTrue(device.isValid)
+        XCTAssertEqual(device.command, "wsl.exe --distribution Ubuntu --user linuxuser --exec python3 -")
+        let args = SSHRemoteUsageClient.sshArguments(device: device, command: device.command)
+        XCTAssertEqual(Array(args.suffix(6)), ["-l", "smilelab", "-p", "2222", "100.115.179.72", device.command])
+        XCTAssertEqual(RemoteUsageDevice(name: "Windows", host: "lab", platform: .windows).command, "py -3 -")
+        XCTAssertEqual(RemoteUsageDevice(name: "Mac", host: "mac", platform: .macOS).command, "python3 -")
+    }
+
+    func testLegacySavedDeviceDecodesWithoutNewConnectionFields() throws {
+        let json = Data(#"{"id":"ssh-lab","name":"Lab","host":"lab","platform":"Windows WSL","enabled":true}"#.utf8)
+        let device = try JSONDecoder().decode(RemoteUsageDevice.self, from: json)
+        XCTAssertNil(device.sshUser)
+        XCTAssertNil(device.sshPort)
+        XCTAssertNil(device.wslDistribution)
+        XCTAssertNil(device.wslUser)
+        XCTAssertEqual(device.command, "wsl.exe --exec python3 -")
     }
 
     func testRemoteEventsUseCanonicalCodexPricing() throws {

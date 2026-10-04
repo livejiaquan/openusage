@@ -42,17 +42,39 @@ final class RemoteUsageDeviceStore {
         dataStore.setRemoteHistoryDocuments(Array(documents.values))
     }
 
-    func add(name: String, host: String, platform: RemoteUsageDevice.Platform) async throws {
-        let device = RemoteUsageDevice(name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-                                       host: host.trimmingCharacters(in: .whitespacesAndNewlines),
-                                       platform: platform)
-        guard device.isValid else { throw SSHRemoteUsageError.invalidHost }
-        guard !devices.contains(where: { $0.host == device.host && $0.platform == device.platform }) else {
-            throw SSHRemoteUsageError.commandFailed("This SSH host and platform are already added.")
-        }
+    func add(_ device: RemoteUsageDevice) async throws {
+        try validateUnique(device)
         devices.append(device)
         persistDevices()
         await refresh(device.id)
+    }
+
+    func update(_ device: RemoteUsageDevice) async throws {
+        guard let index = devices.firstIndex(where: { $0.id == device.id }) else { return }
+        try validateUnique(device)
+        let changedConnection = devices[index].connectionKey != device.connectionKey
+        devices[index] = device
+        if changedConnection {
+            documents.removeValue(forKey: device.id)
+            lastUpdated.removeValue(forKey: device.id)
+            persistDocuments()
+            dataStore.setRemoteHistoryDocuments(Array(documents.values))
+        }
+        errors[device.id] = nil
+        persistDevices()
+        await refresh(device.id)
+    }
+
+    func test(_ device: RemoteUsageDevice) async throws -> String {
+        try validateUnique(device)
+        return try await client.probe(device)
+    }
+
+    private func validateUnique(_ device: RemoteUsageDevice) throws {
+        guard device.isValid else { throw SSHRemoteUsageError.invalidConfiguration }
+        guard !devices.contains(where: { $0.id != device.id && $0.connectionKey == device.connectionKey }) else {
+            throw SSHRemoteUsageError.commandFailed("This SSH account and system are already added.")
+        }
     }
 
     func remove(_ id: String) {
@@ -90,13 +112,14 @@ final class RemoteUsageDeviceStore {
             let document = try await client.fetch(device)
             try document.validate()
             // A device removed while SSH was in flight must not reappear in the combined view.
-            guard devices.contains(where: { $0.id == id && $0.enabled }) else { return }
+            guard devices.contains(where: { $0.id == id && $0.enabled && $0.connectionKey == device.connectionKey }) else { return }
             documents[id] = document
             lastUpdated[id] = document.updatedAt
             errors[id] = nil
             persistDocuments()
             dataStore.setRemoteHistoryDocuments(Array(documents.values))
         } catch {
+            guard devices.contains(where: { $0.id == id && $0.connectionKey == device.connectionKey }) else { return }
             errors[id] = error.localizedDescription
             AppLog.warn(.config, "remote usage \(device.name): \(error.localizedDescription)")
         }
