@@ -71,6 +71,7 @@ struct DashboardContentView: View {
                     }
                     .foregroundStyle(.primary)
                 }
+                .menuIndicator(.hidden)
             }
             .font(.caption)
             .padding(.bottom, density.sectionSpacing)
