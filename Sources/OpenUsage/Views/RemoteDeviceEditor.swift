@@ -39,9 +39,14 @@ struct RemoteDeviceEditor: View {
             field(.sshUser, windowsSSH ? "Windows Username" : "SSH Username",
                   placeholder: "From SSH config", text: $draft.sshUser, optional: true)
             if windowsSSH { help("The Windows account used to log in over SSH.") }
-            DisclosureGroup("Advanced SSH", isExpanded: $showSSHOptions) {
+            DisclosureGroup(isExpanded: $showSSHOptions) {
                 field(.sshPort, "Port", placeholder: "From SSH config, otherwise 22", text: $draft.sshPort, optional: true)
                     .padding(.top, 8)
+            } label: {
+                Text("Advanced SSH")
+                    .accessibilityHint(showSSHOptions
+                        ? "Contains the optional SSH port setting."
+                        : "Expand to set a custom SSH port.")
             }
             .font(.caption.weight(.medium))
             Divider()
@@ -58,13 +63,18 @@ struct RemoteDeviceEditor: View {
             }
             if draft.platform == .wsl {
                 help("SSH connects to Windows; history is read inside WSL.")
-                DisclosureGroup("WSL Environment", isExpanded: $showWSLOptions) {
+                DisclosureGroup(isExpanded: $showWSLOptions) {
                     VStack(alignment: .leading, spacing: 10) {
                         field(.wslDistribution, "Distribution", placeholder: "Windows default", text: $draft.wslDistribution, optional: true)
                         field(.wslUser, "Linux Username", placeholder: "Distribution default", text: $draft.wslUser, optional: true)
                         help("The Linux account whose Claude and Codex logs you want to import.")
                     }
                     .padding(.top, 8)
+                } label: {
+                    Text("WSL Environment")
+                        .accessibilityHint(showWSLOptions
+                            ? "Contains the optional WSL distribution and Linux username settings."
+                            : "Expand to set a WSL distribution and Linux username.")
                 }
                 .font(.caption.weight(.medium))
             } else {
@@ -73,6 +83,7 @@ struct RemoteDeviceEditor: View {
             }
             Divider()
             feedback
+            help("History imports when you save. Checking SSH is optional.")
             actions
             help("Uses your SSH keys. Only daily usage summaries are saved on this Mac.")
         }
@@ -128,7 +139,6 @@ struct RemoteDeviceEditor: View {
                 Label("SSH and Python Ready", systemImage: "checkmark.circle.fill")
                     .font(.caption.weight(.medium)).foregroundStyle(Theme.positive)
                 help(probeResult)
-                help("History will be checked when you save.")
             }
         } else if let operationError {
             Label(operationError, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(Theme.notice)
@@ -138,9 +148,11 @@ struct RemoteDeviceEditor: View {
 
     private var actions: some View {
         HStack(spacing: 8) {
-            Button("Check SSH") { testConnection() }.buttonStyle(.bordered)
+            Button("Check SSH") { testConnection() }.buttonStyle(.borderless)
+                .accessibilityHint("Checks SSH connectivity and Python availability. Saving also imports history.")
             Spacer(minLength: 0)
             Button(isNew ? "Add Device" : "Save Changes") { save() }.buttonStyle(.borderedProminent)
+                .accessibilityHint("Saves this device and imports its usage history.")
         }
         .disabled(operation != nil).controlSize(.regular)
     }
