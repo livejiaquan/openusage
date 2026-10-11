@@ -20,6 +20,12 @@ final class RemoteUsageDeviceStore {
     private(set) var lastUpdated: [String: Date] = [:]
     var isRefreshing: Bool { !refreshingIDs.isEmpty }
 
+    func isRefreshing(_ id: String) -> Bool { refreshingIDs.contains(id) }
+
+    func historyIsEmpty(_ id: String) -> Bool {
+        documents[id]?.providers.values.allSatisfy { $0.series.daily.isEmpty } ?? true
+    }
+
     init(dataStore: WidgetDataStore, defaults: UserDefaults = .standard,
          client: SSHRemoteUsageClient = SSHRemoteUsageClient()) {
         self.dataStore = dataStore

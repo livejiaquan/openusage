@@ -3,7 +3,7 @@ name: Build SSH remote usage app
 on:
   workflow_dispatch:
   push:
-    branches: [feat/ssh-remote-usage]
+    branches: ["feat/ssh-*"]
 
 permissions:
   contents: read
