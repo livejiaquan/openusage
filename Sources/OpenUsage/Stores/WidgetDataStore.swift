@@ -215,7 +215,6 @@ final class WidgetDataStore {
         // `Task {}` from MainActor context inherits the isolation (a task-group child can't capture
         // the non-Sendable store), so: fire one task per provider, then await them all.
         let providerIDs = registry.providers.map(\.id).filter { isProviderEnabled($0) }
-        guard let provider else { return .skipped }
         let start = monotonicNow()
         AppLog.info(.refresh, "batch start (\(providerIDs.count) providers, force=\(force))")
         let tasks = providerIDs.map { providerID in
@@ -336,6 +335,7 @@ final class WidgetDataStore {
             return .backedOff
         }
 
+        guard let provider else { return .skipped }
         let start = monotonicNow()
         // A provider that never returns would otherwise hold the in-flight entry — and the spinner —
         // forever. Past the deadline, stop waiting and treat it as any other failed refresh.
