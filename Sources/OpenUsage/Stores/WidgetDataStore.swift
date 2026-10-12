@@ -215,6 +215,7 @@ final class WidgetDataStore {
         // `Task {}` from MainActor context inherits the isolation (a task-group child can't capture
         // the non-Sendable store), so: fire one task per provider, then await them all.
         let providerIDs = registry.providers.map(\.id).filter { isProviderEnabled($0) }
+        guard let provider else { return .skipped }
         let start = monotonicNow()
         AppLog.info(.refresh, "batch start (\(providerIDs.count) providers, force=\(force))")
         let tasks = providerIDs.map { providerID in
@@ -292,7 +293,7 @@ final class WidgetDataStore {
         notifyHistoryChange: Bool = true
     ) async -> RefreshOutcome {
         guard isProviderEnabled(providerID) else { return .skipped }
-        guard let provider = providersByID[providerID] else { return .skipped }
+        let provider = providersByID[providerID]
         // Skip if an in-flight refresh already owns this provider (e.g. the background timer racing the
         // first popover open), so we never fire duplicate network calls for the same provider.
         guard !refreshingProviderIDs.contains(providerID) else {
@@ -304,7 +305,7 @@ final class WidgetDataStore {
         // A TTL-fresh entry that provably belongs to another account (swap since it was written) must
         // not short-circuit the refresh — under persisted freshness (the one-shot CLI) it would copy
         // the previous account's snapshot back in. Treat it as a miss so the fetch overwrites it.
-        let historyOwnershipChanged = await provider.prepareHistoryForRefresh()
+        let historyOwnershipChanged = await provider?.prepareHistoryForRefresh() ?? false
         if historyOwnershipChanged, let prior = localSnapshots[providerID] {
             let cleared = UsageHistorySnapshotRenderer.removingHistory(from: prior)
             localSnapshots[providerID] = cleared
