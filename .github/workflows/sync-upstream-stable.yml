@@ -1,0 +1,62 @@
+name: Sync official stable release
+
+on:
+  schedule:
+    - cron: '23 1 * * *' # About 09:23 Asia/Taipei; GitHub scheduling may be delayed.
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - script/sync_upstream.py
+      - Tests/sync_upstream_tests.py
+      - .github/workflows/sync-upstream-stable.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-stable-sync
+  cancel-in-progress: false
+
+jobs:
+  test-controller:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: python3 -m unittest discover -s Tests -p sync_upstream_tests.py -v
+
+  synchronize:
+    needs: test-controller
+    if: github.event_name != 'pull_request' && github.repository == 'livejiaquan/openusage'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write # Explicitly dispatch CI for GITHUB_TOKEN-created sync branches.
+    env:
+      PRODUCT_BRANCH: ${{ vars.SSH_PRODUCT_BRANCH || 'feat/ssh-settings-ux' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: controller
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.PRODUCT_BRANCH }}
+          path: product
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prepare isolated merge
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 controller/script/sync_upstream.py prepare --product product --repository "$GITHUB_REPOSITORY" --target "$PRODUCT_BRANCH"
+      - name: Publish review-only sync PR and dispatch CI
+        if: steps.prepare.outputs.needs_sync == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.prepare.outputs.tag }}
+          SYNC_BRANCH: ${{ steps.prepare.outputs.branch }}
+        run: python3 controller/script/sync_upstream.py publish --product product --repository "$GITHUB_REPOSITORY" --target "$PRODUCT_BRANCH" --tag "$RELEASE_TAG" --branch "$SYNC_BRANCH"
