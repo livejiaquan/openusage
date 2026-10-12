@@ -1019,6 +1019,51 @@ final class CodexLogUsageScannerTests: XCTestCase {
         XCTAssertEqual(scan?.series.daily.reduce(0) { $0 + $1.totalTokens }, 150)
     }
 
+    func testAccountScopeDoesNotAttributeExternalSessionDirectoryToEveryCard() async throws {
+        let day = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3600))
+        func rollout(_ input: Int, _ output: Int) -> String {
+            CodexLogFixture.tokenCount(timestamp: day,
+                                      last: CodexLogFixture.usage(input: input, output: output), model: "gpt-5.2")
+        }
+        let homeA = try CodexLogFixture.makeHome(files: ["sessions/a.jsonl": rollout(100, 50)])
+        let homeB = try CodexLogFixture.makeHome(files: ["sessions/b.jsonl": rollout(20, 10)])
+        let extra = try CodexLogFixture.makeHome(files: ["external.jsonl": rollout(999, 1)])
+        defer {
+            for home in [homeA, homeB, extra] { try? FileManager.default.removeItem(at: home) }
+        }
+        let scanner = CodexLogUsageScanner(
+            environment: FakeEnvironment(["CODEX_HOME": homeA.path]),
+            incrementalScanner: IncrementalJSONLScanner<CodexLogUsageScanner.Event>(),
+            additionalSessionDirectories: [extra.path]
+        )
+
+        let scanA = await scanner.scan(homes: CodexLogHomes(read: [homeA], foreign: [homeB], cache: [homeA, homeB]),
+                                       pricing: fixedRates())
+        let scanB = await scanner.scan(homes: CodexLogHomes(read: [homeB], foreign: [homeA], cache: [homeA, homeB]),
+                                       pricing: fixedRates())
+
+        XCTAssertEqual(scanA?.series.daily.reduce(0) { $0 + $1.totalTokens }, 150)
+        XCTAssertEqual(scanB?.series.daily.reduce(0) { $0 + $1.totalTokens }, 30)
+    }
+
+    func testUnscopedScanCountsAnExtraDirectoryAliasingHomeSessionsOnlyOnce() async throws {
+        let day = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3600))
+        let home = try CodexLogFixture.makeHome(files: [
+            "sessions/a.jsonl": CodexLogFixture.tokenCount(timestamp: day,
+                last: CodexLogFixture.usage(input: 100, output: 50), model: "gpt-5.2")
+        ])
+        defer { try? FileManager.default.removeItem(at: home) }
+        let scanner = CodexLogUsageScanner(
+            environment: FakeEnvironment(["CODEX_HOME": home.path]),
+            incrementalScanner: IncrementalJSONLScanner<CodexLogUsageScanner.Event>(),
+            additionalSessionDirectories: [home.appendingPathComponent("sessions").path]
+        )
+
+        let scan = await scanner.scan(pricing: fixedRates())
+
+        XCTAssertEqual(scan?.series.daily.reduce(0) { $0 + $1.totalTokens }, 150)
+    }
+
     /// Manual parity harness against the real logs on this machine: prints per-day totals to compare
     /// with `ccusage codex daily --json --offline`. Gated like the other live tests.
     func testParityAgainstRealLocalLogs() async throws {

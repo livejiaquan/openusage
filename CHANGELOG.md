@@ -1,5 +1,61 @@
 # Changelog
 
+## v0.7.14
+
+### New Features
+- Refresh and save tokens for independent Codex homes (#1322) by @robinebers.
+- Add Report an Issue to the Options menu (#1343) by @robinebers.
+
+### Bug Fixes
+- Keep the panel’s top edge steady during height animations (#1345) by @kennnyq.
+- Preserve each screen’s header and footer during navigation (#1346) by @kennnyq.
+- Restore Codex local spending for multiple accounts (#1349) by @robinebers.
+- Show OpenCode session reset countdowns below 1% usage by @hasan007-sudo.
+- Prefer structured Cursor team usage pools (#1337) by @robinebers.
+- Keep slow Codex history scans from blocking live quota (#1338) by @robinebers.
+- Update Codex plan names and preserve header labels (#1332) by @validatedev.
+
+### Chores
+- Update PostHog to 3.85.3 (#1347) by @app/dependabot.
+- Record the beta changelog by @robinebers.
+
+**Full Changelog**:
+https://github.com/robinebers/openusage/compare/v0.7.13...v0.7.14
+
+## v0.7.14-beta.1
+
+### New Features
+- feat(codex): refresh and persist tokens for independent Codex homes on account cards ([#1322](https://github.com/robinebers/openusage/pull/1322)) by @robinebers
+- feat: add Report an Issue to the Options menu ([#1343](https://github.com/robinebers/openusage/pull/1343)) by @robinebers
+
+### Bug Fixes
+- fix: keep the menu-bar panel's top edge still while its height animates ([#1345](https://github.com/robinebers/openusage/pull/1345)) by @kennnyq
+- fix: keep each screen's own header and footer while switching screens ([#1346](https://github.com/robinebers/openusage/pull/1346)) by @kennnyq
+- fix(codex): bring back local spend by counting each folder for the account signed in there ([#1349](https://github.com/robinebers/openusage/pull/1349)) by @robinebers
+- fix(opencode): show Session reset countdown for sub-1% sessions by @hasan007-sudo
+- fix(cursor): prefer structured team usage pools over legacy dollars ([#1337](https://github.com/robinebers/openusage/pull/1337)) by @robinebers
+- fix(codex): retain slow history scans without blocking live quota ([#1338](https://github.com/robinebers/openusage/pull/1338)) by @robinebers
+- fix(codex): update plan names and keep header labels visible ([#1332](https://github.com/robinebers/openusage/pull/1332)) by @validatedev
+
+### Chores
+- chore(deps): bump github.com/posthog/posthog-ios from 3.81.0 to 3.85.3 ([#1347](https://github.com/robinebers/openusage/pull/1347)) by @app/dependabot
+
+---
+
+### Changelog
+**Full Changelog**: [v0.7.13...v0.7.14-beta.1](https://github.com/robinebers/openusage/compare/v0.7.13...v0.7.14-beta.1)
+
+- [a345b82](https://github.com/robinebers/openusage/commit/a345b823f5b2dff96033f3ac57875286d7d9ade7) feat(codex): refresh and persist tokens for independent Codex homes on account cards (#1322) by @robinebers
+- [e86a9a6](https://github.com/robinebers/openusage/commit/e86a9a6e7f2ab7456e796ac79b2a641d1cca54f9) fix: keep the menu-bar panel's top edge still while its height animates (#1345) by @kennnyq
+- [ed6e853](https://github.com/robinebers/openusage/commit/ed6e85343b5082b19f7b96cc8b7c17b2980f3f8b) fix: keep each screen's own header and footer while switching screens (#1346) by @kennnyq
+- [f36eb73](https://github.com/robinebers/openusage/commit/f36eb73312a37d8edb8dd3719334087554748347) chore(deps): bump github.com/posthog/posthog-ios from 3.81.0 to 3.85.3 (#1347) by @app/dependabot
+- [a69d93a](https://github.com/robinebers/openusage/commit/a69d93ae4b7b8ac6ee867c23dd63ade9b9487c34) fix(codex): bring back local spend by counting each folder for the account signed in there (#1349) by @robinebers
+- [ae49de0](https://github.com/robinebers/openusage/commit/ae49de04a2b7fc1b3cc334fcc1009276c46d82ad) feat: add Report an Issue to the Options menu (#1343) by @robinebers
+- [062fb5e](https://github.com/robinebers/openusage/commit/062fb5ec9ac1c0188e32072e438a91d972c07d5c) fix(opencode): show Session reset countdown for sub-1% sessions by @hasan007-sudo
+- [8b31af7](https://github.com/robinebers/openusage/commit/8b31af78820d880a3a177e24607394a61c923a71) fix(cursor): prefer structured team usage pools over legacy dollars (#1337) by @robinebers
+- [0600610](https://github.com/robinebers/openusage/commit/0600610c20284350d82f44ff46d6484f5e60010e) fix(codex): retain slow history scans without blocking live quota (#1338) by @robinebers
+- [aeceecc](https://github.com/robinebers/openusage/commit/aeceecc6d79fb11ee47f103def6be86ee77cab05) fix(codex): update plan names and keep header labels visible (#1332) by @validatedev
+
 ## v0.7.13
 
 ### New Features

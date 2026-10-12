@@ -50,14 +50,13 @@ enum ProviderCatalog {
             providers.append(CodexProvider(
                 authStore: CodexAuthStore(
                     additionalAuthHomes: codex.plainAuthHomes,
+                    writableAuthHomes: Set(codex.plainWritableAuthHomes),
                     piCredentialSources: codex.plainPiCredentialSources
                 ),
                 logUsageScanner: CodexLogUsageScanner(
-                    allowsUnattributedHistory: codex.allowsUnattributedHistory,
                     additionalHomes: codex.plainAuthHomes,
                     additionalSessionDirectories: logRoots.codexSessionDirectories
-                ),
-                allowsUnattributedHistory: codex.allowsUnattributedHistory
+                )
             ))
         } else {
             providers += codex.cards.map { card in
@@ -66,14 +65,11 @@ enum ProviderCatalog {
                     authStore: CodexAuthStore(
                         expectedIdentity: card.identity,
                         additionalAuthHomes: card.authHomes,
+                        writableAuthHomes: Set(card.writableAuthHomes),
                         piCredentialSources: card.piCredentialSources
                     ),
-                    logUsageScanner: CodexLogUsageScanner(
-                        allowsUnattributedHistory: card.allowsUnattributedHistory,
-                        additionalHomes: card.logHomes,
-                        additionalSessionDirectories: logRoots.codexSessionDirectories
-                    ),
-                    allowsUnattributedHistory: card.allowsUnattributedHistory
+                    logUsageScanner: CodexLogUsageScanner(),
+                    historyScope: .account(card.identity, codex.historyHomes, claimsPiUsage: card.claimsPiUsage)
                 )
             }
         }

@@ -5,10 +5,9 @@ import XCTest
 final class CodexRetainedHistoryTests: XCTestCase {
     func testPendingHistoryDoesNotAddNoDataBadgeBeforeStoreRestoresHistory() async {
         let gate = PricingGate()
-        let provider = CodexProvider(
+        let provider = CodexProvider.isolated(
             localHistoryWait: .zero,
             logUsageScanner: CodexLogFixture.scanner(home: nil),
-            allowsUnattributedHistory: false,
             pricing: { await gate.value() }
         )
         let snapshot = await provider.snapshot(mapped: CodexMappedUsage(plan: nil, lines: []))
@@ -19,10 +18,9 @@ final class CodexRetainedHistoryTests: XCTestCase {
     }
 
     func testCompletedEmptyHistoryStillShowsNoDataBadge() async {
-        let provider = CodexProvider(
+        let provider = CodexProvider.isolated(
             localHistoryWait: .seconds(1),
             logUsageScanner: CodexLogFixture.scanner(home: nil),
-            allowsUnattributedHistory: false,
             pricing: { ModelPricing(supplement: PricingSupplement(),
                                     primary: PricingCatalog(entries: [:]), secondary: PricingCatalog(entries: [:])) }
         )
@@ -45,10 +43,9 @@ final class CodexRetainedHistoryTests: XCTestCase {
             ].joined(separator: "\n")
         ])
         defer { try? FileManager.default.removeItem(at: home) }
-        let provider = CodexProvider(
+        let provider = CodexProvider.isolated(
             localHistoryWait: .zero,
             logUsageScanner: CodexLogFixture.scanner(home: home),
-            allowsUnattributedHistory: false,
             now: { now },
             pricing: { await gate.value() }
         )
