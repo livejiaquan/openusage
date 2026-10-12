@@ -117,8 +117,7 @@ final class CodexHistoryScopeTests: XCTestCase {
         try write("xswap/b/sessions/b.jsonl", rollout(input: 20, output: 10))
         let homes = CodexHistoryHomes(homes: [saved], defaultHome: "/nonexistent", registeredOwners: [saved: b])
 
-        let authStore = CodexAuthStore(files: LocalTextFileAccessor(), keychain: FakeKeychain(), expectedIdentity: b)
-        XCTAssertEqual(homes.claims(for: b, authStore: authStore).logHomes.read.map(\.path), [saved])
+        XCTAssertEqual(homes.ownedHomes(by: b, files: LocalTextFileAccessor()), [saved])
     }
 
     func testKeychainLoginOwnsTheDefaultHomeAndItsOpenCodeHistory() {
@@ -156,8 +155,7 @@ final class CodexHistoryScopeTests: XCTestCase {
                                       registeredOwners: ["/xswap/b": b])
         let files = FakeFiles(["/xswap/b/auth.json": Self.namelessAuth])
 
-        let authStore = CodexAuthStore(files: files, keychain: FakeKeychain(), expectedIdentity: b)
-        XCTAssertEqual(homes.claims(for: b, authStore: authStore).logHomes.read.map(\.path), ["/xswap/b"])
+        XCTAssertEqual(homes.ownedHomes(by: b, files: files), ["/xswap/b"])
     }
 
     func testANamelessLoginInTheDefaultHomeCountsForTheKeychainLogin() {
