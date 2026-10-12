@@ -153,3 +153,11 @@ continues in the background; a later refresh collects its result. Previously loa
 while waiting. Pending history does not show a premature "No usage data" badge.
 A fresh launch may show quota before history appears. Network and authentication
 failures still use the normal stale-data handling.
+
+### Cached history after switching accounts
+
+Account cards validate home ownership before refreshing live limits. When ownership changes, or
+when a launch cache has no verified ownership, cached history is cleared independently of whether
+API authentication succeeds. Live limits and their original freshness stay available. An
+unreadable login is not treated as a confirmed ownership change. Once ownership is validated,
+unchanged cards still retain last-good history during a temporary API or scan failure.

@@ -10,6 +10,12 @@ final class CodexHistoryRefresh<Value: Sendable> {
 
     deinit { task?.cancel() }
 
+    func reset() {
+        task?.cancel()
+        task = nil
+        completed = nil
+    }
+
     func value(wait: Duration, operation: @escaping @MainActor () async -> Value) async -> Value? {
         guard !Task.isCancelled else { return nil }
         if task == nil {

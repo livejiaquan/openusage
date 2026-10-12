@@ -21,6 +21,7 @@ struct CodexHistoryClaims: Equatable, Sendable {
     let ownsDefaultLogin: Bool
     /// Every home's owner was read and none is this account.
     var ownsNoHome = false
+    var ownershipIsResolved = true
 }
 
 /// The Codex homes account cards divide between them. Rollouts never record the paying account, so a
@@ -58,7 +59,8 @@ struct CodexHistoryHomes: Equatable, Sendable {
         return CodexHistoryClaims(
             logHomes: CodexLogHomes(read: owned, foreign: foreign, cache: homes.map { URL(fileURLWithPath: $0) }),
             ownsDefaultLogin: ownsDefaultLogin,
-            ownsNoHome: resolvedEveryHome && owned.isEmpty
+            ownsNoHome: resolvedEveryHome && owned.isEmpty,
+            ownershipIsResolved: resolvedEveryHome
         )
     }
 

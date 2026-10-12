@@ -31,6 +31,10 @@ protocol ProviderRuntime: AnyObject {
 
     func refresh() async -> ProviderSnapshot
 
+    /// Validates the ownership of cached local history before quota/auth work. True means the store
+    /// must drop only history rows, preserving live limits and their original timestamp.
+    func prepareHistoryForRefresh() async -> Bool
+
     /// Whether credentials for this provider already exist on this machine — a cheap, local-only probe
     /// (files, keychain, SQLite; never the network). Used once, on a fresh install's first launch, by
     /// `FirstRunSeeder` to enable exactly the providers the user actually has. Mirror the credential
@@ -44,6 +48,7 @@ protocol ProviderRuntime: AnyObject {
 }
 
 extension ProviderRuntime {
+    func prepareHistoryForRefresh() async -> Bool { false }
     func adoptLaunchSnapshot(_ snapshot: ProviderSnapshot) {}
 }
 

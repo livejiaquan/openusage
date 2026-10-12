@@ -13,6 +13,7 @@ final class CodexProvider: ProviderRuntime {
     let historyScope: CodexHistoryScope
 
     private let localHistory = CodexHistoryRefresh<CodexLocalHistory>()
+    private var validatedHistoryClaims: CodexHistoryClaims?
     let localHistoryWait: Duration
 
     let authStore: CodexAuthStore
@@ -87,6 +88,19 @@ final class CodexProvider: ProviderRuntime {
         }
         let keychain = await loadOffMainActor { [authStore] in authStore.loadKeychainAuth() }
         return keychain?.hasUsableAccessToken == true
+    }
+
+    func prepareHistoryForRefresh() async -> Bool {
+        guard case .account = historyScope else { return false }
+        let claims = await Self.historyClaims(scope: historyScope, authStore: authStore,
+                                               logUsageScanner: logUsageScanner)
+        // A temporarily unreadable login is not evidence of an account switch.
+        guard claims.ownershipIsResolved, claims != validatedHistoryClaims else { return false }
+        validatedHistoryClaims = claims
+        localHistory.reset()
+        // Launch caches do not record home ownership. The first resolved claim must validate them
+        // too, even when authentication fails before a fresh local scan can run.
+        return true
     }
 
     func refresh() async -> ProviderSnapshot {
@@ -170,6 +184,7 @@ final class CodexProvider: ProviderRuntime {
     }
 
     func snapshot(mapped initial: CodexMappedUsage) async -> ProviderSnapshot {
+        _ = await prepareHistoryForRefresh()
         var mapped = initial
         // pi logs name a provider family, not an account card.
         let piCardID = ProviderAccountID.family(of: provider.id)
