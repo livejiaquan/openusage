@@ -29,3 +29,6 @@ node_modules/
 # Local appcast / Sparkle feed output
 feed/
 appcast.xml
+
+# Python controller/test bytecode
+__pycache__/
