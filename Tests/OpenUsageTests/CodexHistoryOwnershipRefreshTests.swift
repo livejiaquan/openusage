@@ -17,8 +17,12 @@ final class CodexHistoryOwnershipRefreshTests: XCTestCase {
         try await assertMovedHistoryIsRemoved(response: Fixtures.usageResponse(), sharedHistoryMoved: false, laterFailure: true)
     }
 
+    func testRunningAccountSwitchClearsOwnedHistoryEvenWhenTheNextAPICallFails() async throws {
+        try await assertMovedHistoryIsRemoved(response: Fixtures.usageResponse(), switchAfterFirstRefresh: true)
+    }
+
     private func assertMovedHistoryIsRemoved(response: HTTPResponse, sharedHistoryMoved: Bool = true,
-                                             laterFailure: Bool = false) async throws {
+                                             laterFailure: Bool = false, switchAfterFirstRefresh: Bool = false) async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("codex-owner-refresh-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
         let main = root.appendingPathComponent("main")
@@ -38,7 +42,8 @@ final class CodexHistoryOwnershipRefreshTests: XCTestCase {
                           atomically: true, encoding: .utf8)
         let identity = CodexAccountIdentity(accountID: "A", email: "a@test")!
         let files = FakeFiles([
-            main.appendingPathComponent("auth.json").path: Fixtures.codexAuth(accountID: "B", email: "b@test"),
+            main.appendingPathComponent("auth.json").path: Fixtures.codexAuth(accountID: switchAfterFirstRefresh ? "A" : "B",
+                                                                            email: switchAfterFirstRefresh ? "a@test" : "b@test"),
             saved.appendingPathComponent("auth.json").path: Fixtures.codexAuth(accountID: "A", email: "a@test")
         ])
         let auth = CodexAuthStore(environment: FakeEnvironment(["CODEX_HOME": main.path]), files: files,
@@ -71,7 +76,7 @@ final class CodexHistoryOwnershipRefreshTests: XCTestCase {
 
         _ = await store.refresh(providerID: provider.provider.id, force: true)
 
-        let expected = sharedHistoryMoved ? 0 : 150
+        let expected = sharedHistoryMoved && !switchAfterFirstRefresh ? 0 : 150
         XCTAssertEqual(store.localSnapshots[provider.provider.id]?.usageHistory?.series.daily.reduce(0) { $0 + $1.totalTokens } ?? 0, expected,
                        "History now owned by B must not remain cached on A")
         XCTAssertEqual(cache.loadSnapshots(providerIDs: [provider.provider.id])[provider.provider.id]?.usageHistory?.series.daily.reduce(0) { $0 + $1.totalTokens } ?? 0, expected)
@@ -81,6 +86,15 @@ final class CodexHistoryOwnershipRefreshTests: XCTestCase {
             _ = await store.refresh(providerID: provider.provider.id, force: true)
             XCTAssertEqual(store.localSnapshots[provider.provider.id]?.usageHistory, successful.usageHistory)
             XCTAssertEqual(store.localSnapshots[provider.provider.id]?.refreshedAt, successful.refreshedAt)
+        }
+        if switchAfterFirstRefresh {
+            let successful = try XCTUnwrap(store.localSnapshots[provider.provider.id])
+            files.files[main.appendingPathComponent("auth.json").path] = Fixtures.codexAuth(accountID: "B", email: "b@test")
+            http.response = HTTPResponse(statusCode: 500, headers: [:], body: Data())
+            _ = await store.refresh(providerID: provider.provider.id, force: true)
+            XCTAssertNil(store.localSnapshots[provider.provider.id]?.usageHistory)
+            XCTAssertEqual(store.localSnapshots[provider.provider.id]?.refreshedAt, successful.refreshedAt)
+            XCTAssertNil(cache.loadSnapshots(providerIDs: [provider.provider.id])[provider.provider.id]?.usageHistory)
         }
         if response.statusCode != 200 {
             XCTAssertEqual(store.localSnapshots[provider.provider.id]?.refreshedAt, cached.refreshedAt)
