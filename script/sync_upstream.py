@@ -38,6 +38,15 @@ def dispatch_ci(repository, branch, head):
         run("gh", "workflow", "run", "remote-usage-build.yml", "--repo", repository, "--ref", branch)
 
 
+def existing_pr(repository, target, branch):
+    candidates = gh_json("pr", "list", "--repo", repository, "--base", target,
+                         "--head", branch, "--state", "all", "--limit", "100", "--json",
+                         "url,headRefOid,isCrossRepository,state")
+    # --head filters branch names, not owner:branch. An external fork may use the same name.
+    owned = [item for item in candidates if item.get("isCrossRepository") is False]
+    return next((item for item in owned if item.get("state") == "OPEN"), owned[0] if owned else None)
+
+
 def prepare(product, repository, target):
     valid_branch(target)
     release = gh_json("api", f"repos/{UPSTREAM}/releases/latest")
@@ -45,11 +54,11 @@ def prepare(product, repository, target):
     if not TAG.fullmatch(tag) or release.get("draft") or release.get("prerelease"):
         raise ValueError("Only stable vX.Y.Z releases may be synchronized")
     branch = f"feat/ssh-upstream-{tag}"
-    existing = gh_json("pr", "list", "--repo", repository, "--base", target,
-                       "--head", branch, "--state", "open", "--json", "url,headRefOid")
+    existing = existing_pr(repository, target, branch)
     if existing:
-        dispatch_ci(repository, branch, existing[0]["headRefOid"])
-        return {"needs_sync": "false", "tag": tag, "branch": branch, "pr": existing[0]["url"]}
+        if existing["state"] == "OPEN":
+            dispatch_ci(repository, branch, existing["headRefOid"])
+        return {"needs_sync": "false", "tag": tag, "branch": branch, "pr": existing["url"], "state": existing["state"]}
     target_head = run("git", "rev-parse", "--verify", f"refs/heads/{target}", cwd=product)
     if run("git", "rev-parse", "HEAD", cwd=product) != target_head:
         raise ValueError("Checkout is not at the product branch head")
@@ -79,11 +88,11 @@ def publish(product, repository, target, tag, branch):
         raise ValueError("Unexpected publication branch or release tag")
     if run("git", "branch", "--show-current", cwd=product) != branch:
         raise ValueError("Checkout does not match the prepared sync branch")
-    existing = gh_json("pr", "list", "--repo", repository, "--base", target,
-                       "--head", branch, "--state", "open", "--json", "url,headRefOid")
+    existing = existing_pr(repository, target, branch)
     if existing:
-        dispatch_ci(repository, branch, existing[0]["headRefOid"])
-        return existing[0]["url"]
+        if existing["state"] == "OPEN":
+            dispatch_ci(repository, branch, existing["headRefOid"])
+        return existing["url"]
     # checkout uses persist-credentials:false; authenticate only for this push/publication step.
     run("gh", "auth", "setup-git", cwd=product)
     remote = run("git", "ls-remote", "--heads", "origin", f"refs/heads/{branch}", cwd=product)

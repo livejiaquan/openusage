@@ -15,7 +15,9 @@ GitHub suppresses normal push/PR workflow triggers from GITHUB_TOKEN, so this di
 The CI runs the Python exporter tests, complete Swift tests and App bundle build. Review its exact
 head SHA and result, plus relevant SSH/account-history/GUI behavior, before merging.
 
-An existing PR is reused; CI is dispatched only when that exact head has no existing run. If a
+Only same-repository PRs are reused; a different fork with the same branch name is ignored.
+An explicitly closed/merged sync PR is not recreated for the same tag; reopen it or choose a newer
+release if that decision changes. An existing open PR is reused; CI is dispatched only when that exact head has no existing run. If a
 push succeeded but PR creation failed, an equivalent orphan branch may be reused without a force
 push. A differing branch is left for human review. An existing failing CI is not automatically
 re-run or merged: fix/review the failure first.

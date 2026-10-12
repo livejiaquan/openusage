@@ -62,7 +62,7 @@ class UpstreamSyncTests(unittest.TestCase):
         self.assertEqual(self.prepare()["needs_sync"], "false")
 
     def testExistingPRIsReusedWithoutMutatingGit(self):
-        result = self.prepare(existing=[{"url": "https://github.com/owner/fork/pull/1", "headRefOid": "same"}])
+        result = self.prepare(existing=[{"url": "https://github.com/owner/fork/pull/1", "headRefOid": "same", "isCrossRepository": False, "state": "OPEN"}])
         self.assertEqual(result["needs_sync"], "false")
         self.assertEqual(self.git(self.product, "rev-parse", "HEAD"), self.target_head)
 
@@ -84,11 +84,36 @@ class UpstreamSyncTests(unittest.TestCase):
                 self.prepare(release={"tag_name": tag})
         self.assertEqual(self.git(self.product, "rev-parse", "HEAD"), self.target_head)
 
+    def testCrossRepositoryPRWithSameBranchNameDoesNotSuppressOurSync(self):
+        result = self.prepare(existing=[{"url": "https://github.com/owner/fork/pull/99", "headRefOid": "foreign", "isCrossRepository": True, "state": "OPEN"}])
+        self.assertEqual(result["needs_sync"], "true")
+        self.assertEqual((self.product / "ssh.txt").read_text(), "keep ssh\n")
+
     def testWrongCheckoutCannotProduceASyncWithoutTheProductFeatures(self):
         self.git(self.product, "switch", "main")
         with self.assertRaises(ValueError):
             self.prepare()
         self.assertEqual(self.git(self.product, "rev-parse", "ssh-product"), self.target_head)
+
+    def testExplicitlyClosedPRDoesNotGetRecreatedOrDispatchCI(self):
+        result = self.prepare(existing=[{"url": "https://github.com/owner/fork/pull/1", "headRefOid": "same",
+                                         "isCrossRepository": False, "state": "CLOSED"}])
+        self.assertEqual(result["needs_sync"], "false")
+        self.assertEqual(result["state"], "CLOSED")
+        self.assertEqual(self.git(self.product, "rev-parse", "HEAD"), self.target_head)
+
+    def testForeignPRCannotHijackPublication(self):
+        result = self.prepare()
+        real_run = sync.run
+        def command(*args, **kwargs):
+            if args[:3] == ("gh", "auth", "setup-git"): return ""
+            if args[:3] == ("gh", "pr", "create"): return "https://github.com/owner/fork/pull/2"
+            if args[:3] == ("gh", "workflow", "run"): return ""
+            return real_run(*args, **kwargs)
+        foreign = {"url": "https://github.com/owner/fork/pull/99", "headRefOid": "foreign", "isCrossRepository": True, "state": "OPEN"}
+        with patch.object(sync, "gh_json", side_effect=[[foreign], []]), patch.object(sync, "run", side_effect=command):
+            url = sync.publish(str(self.product), "owner/fork", "ssh-product", result["tag"], result["branch"])
+        self.assertTrue(url.endswith("/pull/2"))
 
     def testDirtyCheckoutIsRejected(self):
         (self.product / "uncommitted.txt").write_text("unfinished work")
@@ -99,13 +124,13 @@ class UpstreamSyncTests(unittest.TestCase):
     def testExistingPRPublishDoesNotPushOrDispatch(self):
         branch = "feat/ssh-upstream-v0.7.14"
         self.git(self.product, "switch", "-c", branch)
-        with patch.object(sync, "gh_json", side_effect=[[{"url": "https://github.com/owner/fork/pull/1", "headRefOid": "same"}], [{"headSha": "same"}]]), patch.object(sync, "run", wraps=sync.run) as commands:
+        with patch.object(sync, "gh_json", side_effect=[[{"url": "https://github.com/owner/fork/pull/1", "headRefOid": "same", "isCrossRepository": False, "state": "OPEN"}], [{"headSha": "same"}]]), patch.object(sync, "run", wraps=sync.run) as commands:
             self.assertIn("/pull/1", sync.publish(str(self.product), "owner/fork", "ssh-product", "v0.7.14", branch))
             self.assertEqual(commands.call_count, 1) # local branch verification only
 
 
     def testRetryOfExistingPRDispatchesMissingCIWithoutGitMutation(self):
-        values = [{"tag_name": "v0.7.14"}, [{"url": "https://github.com/owner/fork/pull/1", "headRefOid": "same"}], []]
+        values = [{"tag_name": "v0.7.14"}, [{"url": "https://github.com/owner/fork/pull/1", "headRefOid": "same", "isCrossRepository": False, "state": "OPEN"}], []]
         with patch.object(sync, "gh_json", side_effect=values), patch.object(sync, "run") as commands:
             result = sync.prepare(str(self.product), "owner/fork", "ssh-product")
             self.assertEqual(result["needs_sync"], "false")
