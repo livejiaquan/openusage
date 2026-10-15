@@ -1,43 +1,39 @@
 import SwiftUI
 
 struct RemoteDevicesSettingsSection: View {
-    @Bindable var store: RemoteUsageDeviceStore
+    let store: RemoteUsageDeviceStore
     @AppStorage(DensitySetting.key) private var density = DensitySetting.regular
-    @State private var isEditing = false
-    @State private var editingID: String?
-    @State private var name = ""
-    @State private var host = ""
-    @State private var sshUser = ""
-    @State private var sshPort = ""
-    @State private var wslDistribution = ""
-    @State private var wslUser = ""
-    @State private var platform: RemoteUsageDevice.Platform = .wsl
-    @State private var showSSHOptions = false
-    @State private var showWSLOptions = false
-    @State private var formError: String?
-    @State private var testResult: String?
-    @State private var busy = false
+    @State private var editor: EditorSession?
     @State private var pendingRemoval: RemoteUsageDevice?
 
+    private struct EditorSession: Identifiable {
+        let id = UUID()
+        let device: RemoteUsageDevice?
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: density.headerToCardSpacing) {
-            Text("Remote Devices")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-            if isEditing { editorCard }
-            else { deviceListCard }
-            Text("Only daily usage summaries are saved on this Mac.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Remote Devices").font(.caption.weight(.semibold))
+                Spacer()
+                if editor == nil && !store.devices.isEmpty {
+                    Text("\(store.devices.count)").font(.caption.monospacedDigit())
+                }
+            }
+            .foregroundStyle(.secondary).padding(.horizontal, 8)
+            if let editor {
+                RemoteDeviceEditor(store: store, device: editor.device) { self.editor = nil }
+                    .id(editor.id)
+            } else {
+                deviceList
+                Text("Claude and Codex history from your other computers. Live account limits still come from this Mac.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true).padding(.horizontal, 8)
+            }
         }
         .confirmationDialog(
             "Remove \(pendingRemoval?.name ?? "Device")?",
-            isPresented: Binding(
-                get: { pendingRemoval != nil },
-                set: { if !$0 { pendingRemoval = nil } }
-            )
+            isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } })
         ) {
             Button("Remove Device", role: .destructive) {
                 if let pendingRemoval { store.remove(pendingRemoval.id) }
@@ -45,258 +41,164 @@ struct RemoteDevicesSettingsSection: View {
             }
             Button("Cancel", role: .cancel) { pendingRemoval = nil }
         } message: {
-            Text("Its saved usage summary will be removed from this Mac.")
+            Text("Removes its settings and saved history from this Mac. The remote computer is unchanged.")
         }
     }
 
-    private var deviceListCard: some View {
+    private var deviceList: some View {
         VStack(spacing: 0) {
             if store.devices.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("No Remote Devices")
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Bring Your Other Computers", systemImage: "desktopcomputer")
                         .font(.body.weight(.medium))
-                    Text("Connect a Mac, Windows, Linux, or WSL device over SSH to include its Claude and Codex history.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text("Add a device over SSH to include its Claude and Codex history here.")
+                        .font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading).padding(12)
             } else {
-                ForEach(Array(store.devices.enumerated()), id: \.element.id) { index, device in
-                    if index > 0 { Divider() }
-                    deviceRow(device)
+                ForEach(store.devices) { device in
+                    RemoteDeviceRow(
+                        device: device, lastUpdated: store.lastUpdated[device.id],
+                        error: store.errors[device.id], isRefreshing: store.isRefreshing(device.id),
+                        historyIsEmpty: store.historyIsEmpty(device.id),
+                        hiddenProviders: store.hiddenProviders(device.id),
+                        onEdit: { editor = EditorSession(device: device) },
+                        onRefresh: { Task { await store.refresh(device.id) } },
+                        onRemove: { pendingRemoval = device }
+                    )
+                    Divider().padding(.leading, 12)
                 }
             }
-            Divider()
-            Button { beginAdding() } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus").frame(width: 18)
-                    Text("Add Device")
-                    Spacer()
-                }
-                .contentShape(Rectangle())
-                .padding(.horizontal, 12)
-                .padding(.vertical, density.controlRowPadding)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Add Remote Device")
-        }
-        .cardSurface()
-    }
-
-    private func deviceRow(_ device: RemoteUsageDevice) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "desktopcomputer")
-                .foregroundStyle(.secondary)
-                .frame(width: 18)
-                .padding(.top, 2)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(device.name)
-                    .font(.body.weight(.medium))
-                    .lineLimit(1)
-                Text("\(device.platform == .wsl ? "WSL" : device.platform.rawValue) · \(device.sshUser.map { "\($0)@" } ?? "")\(device.host)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                if let error = store.errors[device.id] {
-                    Text(error)
-                        .font(.caption2)
-                        .foregroundStyle(Theme.notice)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else if let updated = store.lastUpdated[device.id] {
-                    Text("Updated \(updated.formatted(date: .abbreviated, time: .shortened))")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("Waiting for first update")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            Menu {
-                Button("Edit", systemImage: "pencil") { beginEditing(device) }
-                Button("Refresh", systemImage: "arrow.clockwise") {
-                    Task { await store.refresh(device.id) }
-                }
-                Divider()
-                Button("Remove", systemImage: "trash", role: .destructive) {
-                    pendingRemoval = device
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .frame(width: 20, height: 20)
+            Button { editor = EditorSession(device: nil) } label: {
+                Label("Add Device", systemImage: "plus")
+                    .font(.body.weight(.medium)).foregroundStyle(Color.accentColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12).padding(.vertical, density.controlRowPadding + 2)
                     .contentShape(Rectangle())
             }
-            .menuIndicator(.hidden)
-            .buttonStyle(.plain)
-            .accessibilityLabel("Actions for \(device.name)")
+            .buttonStyle(.plain).accessibilityLabel("Add Remote Device")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, density.controlRowPadding)
-    }
-
-    private var editorCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(editingID == nil ? "Add Device" : "Edit Device")
-                    .font(.body.weight(.semibold))
-                Spacer()
-                Button("Cancel") { resetForm() }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-            }
-            Divider()
-            field("Name", placeholder: "Lab computer", text: $name)
-            field("SSH Host or IP", placeholder: "lab or 100.115.179.72", text: $host)
-            field("SSH Username", placeholder: "Use SSH config", text: $sshUser)
-            Picker("System", selection: $platform) {
-                ForEach(RemoteUsageDevice.Platform.allCases, id: \.self) { option in
-                    Text(option == .wsl ? "Windows WSL" : option.rawValue).tag(option)
-                }
-            }
-            if platform == .wsl {
-                Text("Connects to Windows first, then reads the selected WSL user's logs.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                DisclosureGroup("WSL Options", isExpanded: $showWSLOptions) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        field("Distribution", placeholder: "Default", text: $wslDistribution)
-                        field("Linux Username", placeholder: "Default", text: $wslUser)
-                    }
-                    .padding(.top, 8)
-                }
-                .font(.caption)
-            }
-            DisclosureGroup("SSH Options", isExpanded: $showSSHOptions) {
-                field("Port", placeholder: "22", text: $sshPort)
-                    .padding(.top, 8)
-            }
-            .font(.caption)
-            if let testResult {
-                Label(testResult, systemImage: "checkmark.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.green)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if let formError {
-                Label(formError, systemImage: "exclamationmark.triangle")
-                    .font(.caption)
-                    .foregroundStyle(Theme.notice)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Divider()
-            HStack {
-                Button("Test Connection") { testConnection() }
-                    .disabled(busy || !hasRequiredFields)
-                Spacer(minLength: 4)
-                Button(editingID == nil ? "Add" : "Save") { save() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(busy || !hasRequiredFields)
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface()
     }
+}
 
-    private func field(_ label: String, placeholder: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            TextField(placeholder, text: text)
-                .textFieldStyle(.roundedBorder)
-        }
-    }
+/// Value inputs keep refreshes from invalidating every row or an open editor.
+struct RemoteDeviceRow: View {
+    let device: RemoteUsageDevice
+    let lastUpdated: Date?
+    let error: String?
+    let isRefreshing: Bool
+    let historyIsEmpty: Bool
+    let hiddenProviders: [String]
+    let onEdit: () -> Void
+    let onRefresh: () -> Void
+    let onRemove: () -> Void
+    @AppStorage(DensitySetting.key) private var density = DensitySetting.regular
+    @State private var showErrorDetails = false
 
-    private var hasRequiredFields: Bool {
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private func testConnection() {
-        Task {
-            busy = true
-            defer { busy = false }
-            do {
-                let response = try await store.test(candidate())
-                let parts = response.components(separatedBy: " | ")
-                testResult = parts.count == 3 ? "Connected as \(parts[1]) · \(parts[2])" : "Connected"
-                formError = nil
-            } catch {
-                testResult = nil
-                formError = error.localizedDescription
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 8) {
+                Circle().fill(statusColor).frame(width: 8, height: 8).accessibilityHidden(true)
+                Text(device.name).font(.body.weight(.semibold)).lineLimit(1).truncationMode(.tail)
+                Spacer(minLength: 4)
+                if isRefreshing {
+                    ProgressView().controlSize(.mini).frame(width: 24, height: 24)
+                        .accessibilityLabel("Importing history for \(device.name)")
+                } else {
+                    Button(action: onRefresh) {
+                        Image(systemName: "arrow.clockwise").frame(width: 24, height: 24).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain).foregroundStyle(.secondary).disabled(!device.enabled)
+                    .accessibilityLabel("\(error == nil ? "Refresh" : "Retry") history for \(device.name)")
+                }
+                Menu {
+                    Button("Edit Device", systemImage: "pencil", action: onEdit).disabled(isRefreshing)
+                    Divider()
+                    Button("Remove Device", systemImage: "trash", role: .destructive, action: onRemove)
+                } label: {
+                    Image(systemName: "ellipsis").frame(width: 24, height: 24).contentShape(Rectangle())
+                }
+                .menuIndicator(.hidden).buttonStyle(.plain)
+                .accessibilityLabel("Actions for \(device.name)")
             }
-        }
-    }
-
-    private func save() {
-        Task {
-            busy = true
-            defer { busy = false }
-            do {
-                let device = try candidate()
-                if editingID == nil { try await store.add(device) }
-                else { try await store.update(device) }
-                resetForm()
-            } catch {
-                formError = error.localizedDescription
+            Group {
+                Text(summary).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
+                statusLine
+                if let error, showErrorDetails {
+                    Text(error).textSelection(.enabled).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true).padding(.top, 2)
+                }
+                if !hiddenProviders.isEmpty {
+                    Label(hiddenProvidersNotice, systemImage: "eye.slash").foregroundStyle(Theme.notice)
+                        .fixedSize(horizontal: false, vertical: true).padding(.top, 2)
+                }
             }
+            .font(.caption).padding(.leading, 16)
+        }
+        .padding(.horizontal, 12).padding(.vertical, density.controlRowPadding + 3)
+    }
+
+    @ViewBuilder
+    private var statusLine: some View {
+        if isRefreshing {
+            Text("Importing history…").foregroundStyle(.secondary)
+        } else if !device.enabled {
+            Text("Paused").foregroundStyle(.secondary)
+        } else if error != nil {
+            HStack(spacing: 4) {
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    Text(lastUpdated.map { "Import failed · showing data from \(Self.age($0, now: context.date))" }
+                         ?? "Import failed")
+                        .foregroundStyle(Theme.notice).lineLimit(1)
+                }
+                Button(showErrorDetails ? "Hide" : "Details") { showErrorDetails.toggle() }
+                    .buttonStyle(.borderless).fixedSize()
+                    .accessibilityLabel(showErrorDetails ? "Hide error details" : "Show error details")
+            }
+        } else if let lastUpdated {
+            TimelineView(.periodic(from: .now, by: 60)) { context in
+                Text("Updated \(Self.age(lastUpdated, now: context.date))"
+                     + (historyIsEmpty ? " · no Claude or Codex logs found" : ""))
+                    .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        } else {
+            Text("Not imported yet").foregroundStyle(.secondary)
         }
     }
 
-    private func candidate() throws -> RemoteUsageDevice {
-        func trimmed(_ value: String) -> String { value.trimmingCharacters(in: .whitespacesAndNewlines) }
-        func optional(_ value: String) -> String? { trimmed(value).isEmpty ? nil : trimmed(value) }
-        let portText = trimmed(sshPort)
-        guard portText.isEmpty || Int(portText) != nil else { throw SSHRemoteUsageError.invalidConfiguration }
-        return RemoteUsageDevice(
-            id: editingID ?? "ssh-\(UUID().uuidString.lowercased())", name: trimmed(name),
-            host: trimmed(host), platform: platform,
-            sshUser: optional(sshUser), sshPort: portText.isEmpty ? nil : Int(portText),
-            wslDistribution: platform == .wsl ? optional(wslDistribution) : nil,
-            wslUser: platform == .wsl ? optional(wslUser) : nil
-        )
+    private var statusColor: Color {
+        if isRefreshing || !device.enabled || lastUpdated == nil && error == nil { return .secondary.opacity(0.5) }
+        if error != nil || !hiddenProviders.isEmpty { return Color(nsColor: .systemOrange) }
+        return historyIsEmpty ? .secondary.opacity(0.5) : Color(nsColor: .systemGreen)
     }
 
-    private func beginAdding() {
-        resetForm()
-        isEditing = true
+    private var summary: String {
+        let endpoint = "\(device.sshUser.map { "\($0)@" } ?? "")\(device.host)\(device.sshPort.map { ":\($0)" } ?? "")"
+        let system: String
+        switch device.platform {
+        case .wsl:
+            system = "WSL \(device.wslDistribution ?? "default")\(device.wslUser.map { " · \($0)" } ?? "")"
+        case .linux, .windows, .macOS:
+            system = device.platform.rawValue
+        }
+        return "\(endpoint) · \(system)"
     }
 
-    private func beginEditing(_ device: RemoteUsageDevice) {
-        editingID = device.id
-        name = device.name
-        host = device.host
-        sshUser = device.sshUser ?? ""
-        sshPort = device.sshPort.map(String.init) ?? ""
-        wslDistribution = device.wslDistribution ?? ""
-        wslUser = device.wslUser ?? ""
-        platform = device.platform
-        showSSHOptions = device.sshPort != nil
-        showWSLOptions = device.wslDistribution != nil || device.wslUser != nil
-        formError = nil
-        testResult = nil
-        isEditing = true
+    private var hiddenProvidersNotice: String {
+        let names = hiddenProviders.formatted(.list(type: .and))
+        let verb = hiddenProviders.count == 1 ? "isn't" : "aren't"
+        return "\(names) \(verb) counted on the dashboard. This Mac has more than one account for "
+            + (hiddenProviders.count == 1 ? "it" : "them") + ", so this device's history can't be matched to one."
     }
 
-    private func resetForm() {
-        isEditing = false
-        editingID = nil
-        name = ""
-        host = ""
-        sshUser = ""
-        sshPort = ""
-        wslDistribution = ""
-        wslUser = ""
-        showSSHOptions = false
-        showWSLOptions = false
-        formError = nil
-        testResult = nil
+    /// Same compact age as iCloud Sync's device rows.
+    static func age(_ date: Date, now: Date) -> String {
+        let seconds = max(0, now.timeIntervalSince(date))
+        if seconds < 60 { return "just now" }
+        if seconds < 3_600 { return "\(max(1, Int(seconds / 60)))m ago" }
+        if seconds < 86_400 { return "\(max(1, Int(seconds / 3_600)))h ago" }
+        return "\(max(1, Int(seconds / 86_400)))d ago"
     }
 }

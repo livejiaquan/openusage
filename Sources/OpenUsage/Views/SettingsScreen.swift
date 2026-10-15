@@ -56,6 +56,8 @@ struct SettingsScreen: View {
             generalSection
             ICloudSyncSettingsSection(sync: container.iCloudSync)
             RemoteDevicesSettingsSection(store: container.remoteDevices)
+                // Settings stays mounted while hidden. A new visit starts at the device list.
+                .id(layout.screen == .settings)
             appearanceSection
             usageDisplaySection
             notificationsSection

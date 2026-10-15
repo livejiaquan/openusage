@@ -319,6 +319,10 @@ def main():
                     events = parser(path)
                 updated[key] = {"size": stat.st_size, "mtime": stat.st_mtime_ns, "events": events}
                 result[provider].extend(event for event in events if event["timestamp"] >= cutoff)
+            except FileNotFoundError:
+                # Codex moves finished sessions into archived_sessions while we scan; the moved file
+                # is picked up from its new path on the next refresh.
+                continue
             except OSError as error:
                 raise SystemExit(f"Could not read a {provider} session: {error}") from error
     # Cache contains only normalized usage metadata and is private to the remote user.

@@ -22,7 +22,7 @@ time; it also reports unavailable iCloud, loading, write, and malformed-file sta
 
 ## Remote Devices
 
-Add an SSH-accessible Linux, Windows, Windows WSL, or Mac source for Claude Code and Codex history. The device row shows the last good update or a connection error, and offers Refresh and Remove. The dashboard's **Usage From** menu switches between all devices, this Mac, and each imported device. See [Remote Devices](remote-devices.md) for setup, data handling, and duplicate-source guidance.
+Add an SSH-accessible Linux, Windows, Windows + WSL, or Mac source for Claude Code and Codex history. Each row shows a status dot, the connection, and one status line with how long ago it last updated, plus a refresh button. Failed imports keep their saved history visible; **Details** shows the error. Providers that can't be matched to one of this Mac's accounts are named on the row. Edit and Remove are in the device's actions menu. The editor asks for the system first, includes a **Before You Start** checklist, reports invalid fields inline, and keeps the optional Test Connection separate from history import. The dashboard's **Usage From** menu switches between all devices, this Mac, and each imported device. See [Remote Devices](remote-devices.md) for setup, data handling, and duplicate-source guidance.
 
 ## Appearance
 
