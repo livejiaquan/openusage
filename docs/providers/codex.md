@@ -61,27 +61,44 @@ in the Keychain counts as an account too. A single account keeps the plain Codex
 uses a login found only in a sibling home or in pi, and counts that home's session logs in its
 spend tiles. Restart OpenUsage after adding or removing a login.
 
-These cards read their logins as they are. OpenUsage never rotates a token that belongs to another
-Codex home, xswap, or pi; it re-reads each source on every refresh and tries every matching login. If
-a card reports an expired login, use that account once in Codex or pi so the tool renews its own
-token, then refresh OpenUsage.
+A card renews the token in its own Codex homes the way the plain Codex card does, so an account you
+only use through a second home keeps working between sessions; the plain card does the same for a
+lone sibling home. Logins that belong to xswap, pi, or the Keychain are read as they are: OpenUsage
+never rotates those tokens, even when `CODEX_HOME` is a link to a home xswap manages or points at an
+xswap slot that names no account. Every source is re-read on each refresh, a login another tool
+changed mid-refresh is left untouched (a renewed token that could not be saved still serves that
+refresh), and each card tries every matching login. If a read-only login has expired, use that
+account once in xswap or pi so the tool renews its own token, then refresh OpenUsage.
 
-When more than one Codex account is known, OpenUsage excludes Codex, pi, and OpenCode spending that
-cannot prove which account paid for it. Live limits and reset-credit actions remain available on each
-card. A pi login or Codex home whose token names no account also disables unattributed spending, even
-when it cannot form its own card and the plain Codex card is all that shows.
+### Whose spending goes on which card
+
+Codex session logs don't say which account ran them, so OpenUsage goes by folder: each Codex home's
+spending goes to the account signed in to that home right now.
+
+- An `xswap run` account home counts for its own account.
+- The main home (`~/.codex` or `$CODEX_HOME`) counts for whoever is signed in there now. After
+  `xswap switch`, that folder's whole history moves to the new account, and the old account's card
+  stops showing it on the next refresh.
+- Swap's **share history** option makes an account home reuse the main home's session folder instead
+  of keeping its own. Those sessions live in one place, so they count once, for the main home's account.
+  Share history is not fully supported: after `xswap switch`, the old account's card can keep showing
+  the spending it had before the switch, so the same spend appears on two cards.
+- A home whose login names no account counts for the account xswap registered there, or for the
+  Keychain login in the main home. Without either, it counts for no card.
+- pi spending goes to the account in pi's `openai-codex` login; after changing that login, restart
+  OpenUsage. OpenCode spending goes to the account signed in to the main home.
+
+With one account, all of this lands on its single card. Live limits and reset-credit actions work on
+every card regardless.
 
 ## The spend tiles
 
-Read-only copies of sessions from another computer can be included with
-[additional local log roots](../local-log-roots.md). The multi-account history rule still applies.
+Read-only copies from another computer can be included through
+[additional local log roots](../local-log-roots.md) on the unscoped Codex card. Account-specific
+cards count only their owned Codex homes; external session folders have no reliable account owner
+and are not added to every card. Live limits still come from each card's authenticated account.
 
-With multiple Codex accounts, spending without a reliable account owner is excluded, including
-previously cached spending. Excluded history is removed before cached data appears or syncs,
-even if the login has expired or the usage request fails. Cached live limits keep their original
-freshness. A shared session folder does not establish who paid for a turn.
-With one known account, shared and copied sessions count once. Synced history must match the
-card's account and workspace. Live usage limits continue to work for every account.
+Copied sessions count once per card; a session copied into two accounts' folders counts on both. Synced history must match the card's account and workspace.
 
 **Customize → Codex → Cost Estimates → Fallback Model** optionally estimates usage that has no known price. The default is **None**. Choose a public model to use its rates for those estimates; known model prices and recorded costs remain unchanged. The existing unknown-model warning and tooltip remain visible when a fallback is used. Switching the choice recalculates local history without changing the model Codex runs. See [model pricing](../pricing.md) for details.
 
@@ -136,3 +153,11 @@ continues in the background; a later refresh collects its result. Previously loa
 while waiting. Pending history does not show a premature "No usage data" badge.
 A fresh launch may show quota before history appears. Network and authentication
 failures still use the normal stale-data handling.
+
+### Cached history after switching accounts
+
+Account cards validate home ownership before refreshing live limits. When ownership changes, or
+when a launch cache has no verified ownership, cached history is cleared independently of whether
+API authentication succeeds. Live limits and their original freshness stay available. An
+unreadable login is not treated as a confirmed ownership change. Once ownership is validated,
+unchanged cards still retain last-good history during a temporary API or scan failure.

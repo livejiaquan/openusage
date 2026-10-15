@@ -187,7 +187,6 @@ final class WidgetDataStore {
         // paint under the new account until the first successful refresh. A card whose current
         // identity is unresolved (logged out, keyring-mode Codex) can't be verified either way — it
         // keeps its cache, exactly as before the guard existed. Non-account providers are unaffected.
-        cache.removeExcludedHistory(for: providers)
         let loaded = cache.loadSnapshots(providerIDs: registry.providers.map(\.id))
             .filter { cardID, _ in
                 guard cache.hasStaleAccountStamp(providerID: cardID, currentIdentityKey: providerIdentityKeys[cardID]) else {
@@ -293,14 +292,31 @@ final class WidgetDataStore {
         notifyHistoryChange: Bool = true
     ) async -> RefreshOutcome {
         guard isProviderEnabled(providerID) else { return .skipped }
+        let provider = providersByID[providerID]
+        // Skip if an in-flight refresh already owns this provider (e.g. the background timer racing the
+        // first popover open), so we never fire duplicate network calls for the same provider.
+        guard !refreshingProviderIDs.contains(providerID) else {
+            AppLog.debug(.refresh, "cache skip \(providerID) (already in flight)")
+            return .skipped
+        }
+        refreshingProviderIDs.insert(providerID)
+        defer { refreshingProviderIDs.remove(providerID) }
         // A TTL-fresh entry that provably belongs to another account (swap since it was written) must
         // not short-circuit the refresh — under persisted freshness (the one-shot CLI) it would copy
         // the previous account's snapshot back in. Treat it as a miss so the fetch overwrites it.
+        let historyOwnershipChanged = await provider?.prepareHistoryForRefresh() ?? false
+        if historyOwnershipChanged, let prior = localSnapshots[providerID] {
+            let cleared = UsageHistorySnapshotRenderer.removingHistory(from: prior)
+            localSnapshots[providerID] = cleared
+            cache.store(cleared, producedByIdentityKey: providerIdentityKeys[providerID])
+            rebuildRenderedSnapshots()
+            if notifyHistoryChange { onLocalHistoryChanged?() }
+        }
         let staleAccountStamp = cache.hasStaleAccountStamp(
             providerID: providerID,
             currentIdentityKey: providerIdentityKeys[providerID]
         )
-        if !force, !staleAccountStamp, let cached = cache.snapshot(providerID: providerID) {
+        if !force, !historyOwnershipChanged, !staleAccountStamp, let cached = cache.snapshot(providerID: providerID) {
             // Skip the no-op write: `@Observable` doesn't compare values, so unconditionally
             // re-assigning an unchanged snapshot would re-render the menu-bar label every pass.
             AppLog.debug(.refresh, "cache hit \(providerID)")
@@ -319,15 +335,7 @@ final class WidgetDataStore {
             return .backedOff
         }
 
-        guard let provider = providersByID[providerID] else { return .skipped }
-        // Skip if an in-flight refresh already owns this provider (e.g. the background timer racing the
-        // first popover open), so we never fire duplicate network calls for the same provider.
-        guard !refreshingProviderIDs.contains(providerID) else {
-            AppLog.debug(.refresh, "cache skip \(providerID) (already in flight)")
-            return .skipped
-        }
-        refreshingProviderIDs.insert(providerID)
-        defer { refreshingProviderIDs.remove(providerID) }
+        guard let provider else { return .skipped }
         let start = monotonicNow()
         // A provider that never returns would otherwise hold the in-flight entry — and the spinner —
         // forever. Past the deadline, stop waiting and treat it as any other failed refresh.

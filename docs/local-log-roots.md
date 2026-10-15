@@ -21,6 +21,7 @@ change Claude Code's or Codex's own homes, write to the archive, or read credent
 any existing `proxy` entry in the same config file. Restart OpenUsage after changing the paths.
 
 Session ownership rules still apply. Claude sessions with a conflicting or unrecognized account
-are excluded from scoped account cards. Codex session rollouts do not identify the account that
-paid for each turn, so local Codex history is excluded when multiple accounts are known. Copied
-logs do not change that limitation. Only entries in the normal local-history date window appear.
+are excluded from scoped account cards. Codex account cards read only the homes currently owned
+by that account. Copied Codex session folders have no reliable account owner, so they are included
+only in the unscoped Codex card, not added to every account card. Only entries in the normal
+local-history date window appear.
