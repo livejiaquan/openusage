@@ -6,6 +6,7 @@ enum SSHRemoteUsageError: Error, LocalizedError {
     case commandFailed(String)
     case oversizedResponse
     case invalidResponse
+    case timedOut(TimeInterval)
 
     var errorDescription: String? {
         switch self {
@@ -14,6 +15,8 @@ enum SSHRemoteUsageError: Error, LocalizedError {
         case .commandFailed(let detail): "Remote connection failed: \(detail)"
         case .oversizedResponse: "The remote usage response exceeded 32 MB."
         case .invalidResponse: "The remote device returned an unsupported usage format."
+        case .timedOut(let seconds):
+            "The remote device didn't finish within \(Int(seconds)) seconds. Check that it's awake and its log folders are reachable."
         }
     }
 }
@@ -28,13 +31,28 @@ struct RemoteUsageEvents: Decodable, Sendable {
 /// metadata; this Mac uses its canonical pricing and dedup code and persists only a daily summary.
 actor SSHRemoteUsageClient {
     static let schema = "openusage.remote-events.v1"
+    /// A first import parses a month of logs, so the full fetch gets far longer than the probe.
+    static let defaultFetchTimeout: TimeInterval = 180
+    static let defaultProbeTimeout: TimeInterval = 30
+    static let maxResponseBytes = 32 * 1024 * 1024
+
+    private let executable: String
+    private let fetchTimeout: TimeInterval
+    private let probeTimeout: TimeInterval
+
+    init(executable: String = "/usr/bin/ssh", fetchTimeout: TimeInterval = SSHRemoteUsageClient.defaultFetchTimeout,
+         probeTimeout: TimeInterval = SSHRemoteUsageClient.defaultProbeTimeout) {
+        self.executable = executable
+        self.fetchTimeout = fetchTimeout
+        self.probeTimeout = probeTimeout
+    }
 
     func fetch(_ device: RemoteUsageDevice) async throws -> UsageHistoryDocument {
         guard device.isValid else { throw SSHRemoteUsageError.invalidConfiguration }
         guard let url = Bundle.openUsageResources.url(forResource: "remote_usage_export", withExtension: "py")
         else { throw SSHRemoteUsageError.missingExporter }
         let script = try Data(contentsOf: url)
-        let output = try runSSH(device: device, command: device.command, input: script)
+        let output = try await runSSH(device: device, input: script, timeout: fetchTimeout)
         let events: RemoteUsageEvents
         do {
             let decoder = JSONDecoder()
@@ -48,10 +66,10 @@ actor SSHRemoteUsageClient {
     }
 
     /// A cheap check of authentication, the selected runtime, and the remote user's home.
-    func probe(_ device: RemoteUsageDevice) throws -> String {
+    func probe(_ device: RemoteUsageDevice) async throws -> String {
         guard device.isValid else { throw SSHRemoteUsageError.invalidConfiguration }
         let script = Data("import getpass, pathlib, sys\nprint(sys.platform + ' | ' + getpass.getuser() + ' | ' + str(pathlib.Path.home()))\n".utf8)
-        let output = try runSSH(device: device, command: device.command, input: script)
+        let output = try await runSSH(device: device, input: script, timeout: probeTimeout)
         let response = String(decoding: output, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         let expected = device.platform == .windows ? "win32" : "linux"
         if device.platform == .macOS {
@@ -101,45 +119,35 @@ actor SSHRemoteUsageClient {
         )
     }
 
-    private func runSSH(device: RemoteUsageDevice, command: String, input: Data) throws -> Data {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
-        process.arguments = Self.sshArguments(device: device, command: command)
-        let stdin = Pipe()
-        let stdout = Pipe()
-        let stderr = Pipe()
-        process.standardInput = stdin
-        process.standardOutput = stdout
-        process.standardError = stderr
-        try process.run()
-        do { try stdin.fileHandleForWriting.write(contentsOf: input) }
-        catch { process.terminate() }
-        try? stdin.fileHandleForWriting.close()
-        var output = Data()
-        while let chunk = try stdout.fileHandleForReading.read(upToCount: 65_536), !chunk.isEmpty {
-            output.append(chunk)
-            if output.count > 32 * 1024 * 1024 {
-                process.terminate()
-                throw SSHRemoteUsageError.oversizedResponse
-            }
+    /// Runs off the cooperative pool, so the actor stays free for other devices while ssh works.
+    private func runSSH(device: RemoteUsageDevice, input: Data, timeout: TimeInterval) async throws -> Data {
+        let result: SSHProcess.Output
+        do {
+            result = try await SSHProcess.run(
+                executable: executable, arguments: Self.sshArguments(device: device, command: device.command),
+                input: input, timeout: timeout, maxOutput: Self.maxResponseBytes
+            )
+        } catch SSHProcess.Failure.timedOut {
+            throw SSHRemoteUsageError.timedOut(timeout)
+        } catch SSHProcess.Failure.oversized {
+            throw SSHRemoteUsageError.oversizedResponse
         }
-        let errors = stderr.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            let detail = String(decoding: errors.prefix(1_024), as: UTF8.self)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            let message: String
-            if detail.contains("Permission denied") {
-                message = "SSH login was rejected. Check the SSH user and key. \(detail)"
-            } else if detail.contains("Host key verification failed") {
-                message = "Trust this host once in Terminal with ssh, then retry. \(detail)"
-            } else if detail.contains("not recognized") || detail.contains("not found") {
-                message = "The selected Python or WSL command is unavailable. \(detail)"
-            } else {
-                message = detail.isEmpty ? "Remote command exited \(process.terminationStatus)." : detail
-            }
-            throw SSHRemoteUsageError.commandFailed(message)
+        guard result.status == 0 else {
+            throw SSHRemoteUsageError.commandFailed(Self.failureMessage(status: result.status, stderr: result.stderr))
         }
-        return output
+        return result.stdout
+    }
+
+    static func failureMessage(status: Int32, stderr: Data) -> String {
+        let detail = String(decoding: stderr.prefix(1_024), as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if detail.contains("Permission denied") {
+            return "SSH login was rejected. Check the SSH user and key. \(detail)"
+        } else if detail.contains("Host key verification failed") {
+            return "Trust this host once in Terminal with ssh, then retry. \(detail)"
+        } else if detail.contains("not recognized") || detail.contains("not found") {
+            return "The selected Python or WSL command is unavailable. \(detail)"
+        }
+        return detail.isEmpty ? "Remote command exited \(status)." : detail
     }
 }

@@ -436,6 +436,22 @@ final class WidgetDataStore {
         rebuildRenderedSnapshots()
     }
 
+    /// Providers in a remote device's history that can't be matched to one of this Mac's account
+    /// cards (for example two Claude accounts here), so the combined view leaves them out.
+    func unattributedProviderNames(in document: UsageHistoryDocument) -> [String] {
+        UsageHistoryAggregator.unattributedFamilies(
+            in: document, descriptors: enabledHistoryDescriptors, providerIdentityKeys: providerIdentityKeys
+        )
+        .map { ["claude": "Claude", "codex": "Codex"][$0] ?? $0 }
+        .sorted()
+    }
+
+    private var enabledHistoryDescriptors: [String: UsageHistoryDescriptor] {
+        registry.historyDescriptorsByProvider.reduce(into: [String: UsageHistoryDescriptor]()) { result, entry in
+            if isProviderEnabled(entry.key) { result[entry.key] = entry.value }
+        }
+    }
+
     var historyScopeOptions: [(id: String, name: String)] {
         [("all", "All Devices"), ("local", "This Mac")]
             + UsageHistoryDocument.newestByDevice(peerHistoryDocuments + remoteHistoryDocuments)
@@ -515,11 +531,7 @@ final class WidgetDataStore {
             : allPeers.filter { $0.deviceID == historyScopeID }
         let sourceSnapshots = historyScopeID == "all" ? localSnapshots
             : localSnapshots.mapValues(UsageHistorySnapshotRenderer.removingHistory)
-        let enabledDescriptors = registry.historyDescriptorsByProvider.reduce(
-            into: [String: UsageHistoryDescriptor]()
-        ) { result, entry in
-            if isProviderEnabled(entry.key) { result[entry.key] = entry.value }
-        }
+        let enabledDescriptors = enabledHistoryDescriptors
         let merged = UsageHistoryAggregator.merged(
             localSnapshots: sourceSnapshots,
             peerDocuments: selectedPeers,

@@ -14,6 +14,7 @@ final class RemoteUsageDeviceStore {
     private let client: SSHRemoteUsageClient
     private var documents: [String: UsageHistoryDocument]
     private var refreshingIDs: Set<String> = []
+    private var backgroundRefresh: Task<Void, Never>?
 
     private(set) var devices: [RemoteUsageDevice]
     private(set) var errors: [String: String] = [:]
@@ -24,6 +25,13 @@ final class RemoteUsageDeviceStore {
 
     func historyIsEmpty(_ id: String) -> Bool {
         documents[id]?.providers.values.allSatisfy { $0.series.daily.isEmpty } ?? true
+    }
+
+    /// Imported providers the dashboard can't count for this device (see
+    /// `UsageHistoryAggregator.unattributedFamilies`). Shown on the device row so the gap isn't silent.
+    func hiddenProviders(_ id: String) -> [String] {
+        guard let document = documents[id] else { return [] }
+        return dataStore.unattributedProviderNames(in: document)
     }
 
     init(dataStore: WidgetDataStore, defaults: UserDefaults = .standard,
@@ -103,9 +111,25 @@ final class RemoteUsageDeviceStore {
         dataStore.setRemoteHistoryDocuments([])
     }
 
+    /// Devices refresh in parallel; each SSH run has its own deadline, so one offline machine can't
+    /// hold back the others.
     func refreshAll() async {
-        for device in devices where device.enabled {
-            await refresh(device.id)
+        let ids = devices.filter(\.enabled).map(\.id)
+        await withTaskGroup(of: Void.self) { group in
+            for id in ids {
+                group.addTask { await self.refresh(id) }
+            }
+        }
+    }
+
+    /// The periodic loop's entry point. Remote devices are slower than local logs, so they refresh
+    /// beside the loop instead of delaying local providers and notifications. A pass still running
+    /// from the previous tick is left to finish rather than stacked.
+    func startRefreshAll() {
+        guard backgroundRefresh == nil else { return }
+        backgroundRefresh = Task {
+            await refreshAll()
+            backgroundRefresh = nil
         }
     }
 

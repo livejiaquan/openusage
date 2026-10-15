@@ -23,7 +23,7 @@ struct RemoteUsageDeviceDraft: Equatable {
         sshPort = device?.sshPort.map(String.init) ?? ""
         wslDistribution = device?.wslDistribution ?? ""
         wslUser = device?.wslUser ?? ""
-        platform = device?.platform ?? .wsl
+        platform = device?.platform ?? .linux
     }
 
     var validationErrors: [Field: String] {

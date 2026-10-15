@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct RemoteDeviceEditor: View {
@@ -7,6 +8,8 @@ struct RemoteDeviceEditor: View {
     @State private var draft: RemoteUsageDeviceDraft
     @State private var showSSHOptions: Bool
     @State private var showWSLOptions: Bool
+    @State private var showSetupGuide: Bool
+    @State private var copiedSSHCommand = false
     @State private var touchedFields: Set<RemoteUsageDeviceDraft.Field> = []
     @State private var attemptedSubmit = false
     @State private var operation: Operation?
@@ -23,6 +26,7 @@ struct RemoteDeviceEditor: View {
         _draft = State(initialValue: RemoteUsageDeviceDraft(device: device))
         _showSSHOptions = State(initialValue: device?.sshPort != nil)
         _showWSLOptions = State(initialValue: device?.wslDistribution != nil || device?.wslUser != nil)
+        _showSetupGuide = State(initialValue: device == nil)
     }
 
     var body: some View {
@@ -33,12 +37,22 @@ struct RemoteDeviceEditor: View {
                 Button("Cancel", action: onFinish).buttonStyle(.borderless).disabled(operation != nil)
             }
             field(.name, "Device Name", placeholder: "Lab Computer", text: $draft.name)
+            // The system comes first: it decides what the username below means and where logs are read.
+            HStack {
+                Text("System").font(.caption.weight(.medium))
+                Spacer(minLength: 8)
+                Picker("System", selection: $draft.platform) {
+                    ForEach(Self.platformOrder, id: \.self) { platform in
+                        Text(platform == .wsl ? "Windows + WSL" : platform.rawValue).tag(platform)
+                    }
+                }
+                .labelsHidden().pickerStyle(.menu).fixedSize().disabled(operation != nil)
+            }
+            help(systemHelp)
             Divider()
-            groupTitle("Connection", systemImage: "network")
             field(.host, "Host or IP Address", placeholder: "lab-server or 192.168.1.20", text: $draft.host)
             field(.sshUser, windowsSSH ? "Windows Username" : "SSH Username",
                   placeholder: "From SSH config", text: $draft.sshUser, optional: true)
-            if windowsSSH { help("The Windows account used to log in over SSH.") }
             DisclosureGroup(isExpanded: $showSSHOptions) {
                 field(.sshPort, "Port", placeholder: "From SSH config, otherwise 22", text: $draft.sshPort, optional: true)
                     .padding(.top, 8)
@@ -49,20 +63,7 @@ struct RemoteDeviceEditor: View {
                         : "Expand to set a custom SSH port.")
             }
             .font(.caption.weight(.medium))
-            Divider()
-            groupTitle("History Location", systemImage: "folder")
-            HStack {
-                Text("Read Logs From").font(.caption)
-                Spacer(minLength: 8)
-                Picker("Read Logs From", selection: $draft.platform) {
-                    ForEach(RemoteUsageDevice.Platform.allCases, id: \.self) { platform in
-                        Text(platform == .wsl ? "Windows + WSL" : platform.rawValue).tag(platform)
-                    }
-                }
-                .labelsHidden().pickerStyle(.menu).disabled(operation != nil)
-            }
             if draft.platform == .wsl {
-                help("SSH connects to Windows; history is read inside WSL.")
                 DisclosureGroup(isExpanded: $showWSLOptions) {
                     VStack(alignment: .leading, spacing: 10) {
                         field(.wslDistribution, "Distribution", placeholder: "Windows default", text: $draft.wslDistribution, optional: true)
@@ -77,15 +78,12 @@ struct RemoteDeviceEditor: View {
                             : "Expand to set a WSL distribution and Linux username.")
                 }
                 .font(.caption.weight(.medium))
-            } else {
-                help(draft.platform == .windows ? "Reads this Windows account's logs using Python 3."
-                     : "Reads this SSH account's Claude and Codex logs.")
             }
             Divider()
+            setupGuide
             feedback
-            help("History imports when you save. Checking SSH is optional.")
             actions
-            help("Uses your SSH keys. Only daily usage summaries are saved on this Mac.")
+            help("Saving imports history. Uses your SSH keys; only daily summaries stay on this Mac.")
         }
         .padding(12).cardSurface()
         .onChange(of: draft.connectionIdentity) { probeResult = nil; operationError = nil }
@@ -95,8 +93,53 @@ struct RemoteDeviceEditor: View {
 
     private var windowsSSH: Bool { draft.platform == .wsl || draft.platform == .windows }
 
-    private func groupTitle(_ title: String, systemImage: String) -> some View {
-        Label(title, systemImage: systemImage).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+    private static let platformOrder: [RemoteUsageDevice.Platform] = [.linux, .macOS, .windows, .wsl]
+
+    private var systemHelp: String {
+        switch draft.platform {
+        case .linux, .macOS: "Reads the SSH account's Claude and Codex logs."
+        case .windows: "Reads the Windows account's logs with Python 3 (py -3)."
+        case .wsl: "SSH logs in to Windows; logs are read inside WSL."
+        }
+    }
+
+    /// What has to be true before the first import; the host-key step is the one people miss.
+    private var setupGuide: some View {
+        DisclosureGroup(isExpanded: $showSetupGuide) {
+            VStack(alignment: .leading, spacing: 6) {
+                help("1. Set up SSH key login to this device. Passwords aren't supported.")
+                help("2. Connect once in Terminal so this Mac trusts its host key:")
+                HStack(spacing: 6) {
+                    Text(sshCommand).font(.caption.monospaced()).textSelection(.enabled)
+                        .lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 4)
+                    Button(copiedSSHCommand ? "Copied" : "Copy") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(sshCommand, forType: .string)
+                        copiedSSHCommand = true
+                    }
+                    .buttonStyle(.borderless).font(.caption).fixedSize()
+                    .accessibilityLabel("Copy SSH command")
+                }
+                .padding(6).background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 6))
+                help(draft.platform == .windows || draft.platform == .wsl
+                     ? "3. Install Python 3 \(draft.platform == .wsl ? "inside WSL" : "on Windows")."
+                     : "3. Make sure python3 is installed on the device.")
+            }
+            .padding(.top, 6)
+        } label: {
+            Text("Before You Start")
+        }
+        .font(.caption.weight(.medium))
+        .onChange(of: sshCommand) { copiedSSHCommand = false }
+    }
+
+    private var sshCommand: String {
+        let host = draft.host.trimmingCharacters(in: .whitespacesAndNewlines)
+        let user = draft.sshUser.trimmingCharacters(in: .whitespacesAndNewlines)
+        let port = draft.sshPort.trimmingCharacters(in: .whitespacesAndNewlines)
+        return "ssh " + (port.isEmpty ? "" : "-p \(port) ") + (user.isEmpty ? "" : "\(user)@")
+            + (host.isEmpty ? "your-host" : host) + " exit"
     }
 
     private func help(_ text: String) -> some View {
@@ -131,12 +174,12 @@ struct RemoteDeviceEditor: View {
         if let operation {
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
-                Text(operation == .testing ? "Checking SSH and Python…" : "Saving and Importing History…").font(.caption)
+                Text(operation == .testing ? "Testing connection…" : "Saving and importing history…").font(.caption)
             }
             .accessibilityElement(children: .combine)
         } else if let probeResult {
             VStack(alignment: .leading, spacing: 4) {
-                Label("SSH and Python Ready", systemImage: "checkmark.circle.fill")
+                Label("Connection Ready", systemImage: "checkmark.circle.fill")
                     .font(.caption.weight(.medium)).foregroundStyle(Theme.positive)
                 help(probeResult)
             }
@@ -148,8 +191,8 @@ struct RemoteDeviceEditor: View {
 
     private var actions: some View {
         HStack(spacing: 8) {
-            Button("Check SSH") { testConnection() }.buttonStyle(.borderless)
-                .accessibilityHint("Checks SSH connectivity and Python availability. Saving also imports history.")
+            Button("Test Connection") { testConnection() }.buttonStyle(.bordered)
+                .accessibilityHint("Checks SSH login and Python on the device. Saving also imports history.")
             Spacer(minLength: 0)
             Button(isNew ? "Add Device" : "Save Changes") { save() }.buttonStyle(.borderedProminent)
                 .accessibilityHint("Saves this device and imports its usage history.")

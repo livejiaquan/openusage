@@ -103,4 +103,55 @@ final class RemoteUsageDeviceTests: XCTestCase {
         XCTAssertEqual(store.localHistoryDocument(deviceID: "this-mac", deviceName: "This Mac")
             .providers["codex"]?.series.daily.first?.totalTokens, 10)
     }
+
+    func testHungRemoteFetchFailsWithTimeoutInsteadOfBlocking() async throws {
+        // A fake ssh whose remote Python never finishes, e.g. a log folder on a dead network mount.
+        let script = FileManager.default.temporaryDirectory.appendingPathComponent("hung-ssh-\(UUID().uuidString)")
+        try "#!/bin/sh\nsleep 30\n".write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        defer { try? FileManager.default.removeItem(at: script) }
+        let client = SSHRemoteUsageClient(executable: script.path, fetchTimeout: 1, probeTimeout: 1)
+        let device = RemoteUsageDevice(name: "Lab", host: "lab", platform: .linux)
+        let started = Date()
+        do {
+            _ = try await client.fetch(device)
+            XCTFail("Expected a timeout")
+        } catch SSHRemoteUsageError.timedOut(let seconds) {
+            XCTAssertEqual(seconds, 1)
+        }
+        XCTAssertLessThan(Date().timeIntervalSince(started), 10)
+    }
+
+    func testUnattributedRemoteHistoryIsReportedInsteadOfSilentlyDropped() {
+        let now = Date()
+        let history = ProviderUsageHistory(series: DailyUsageSeries(daily: [
+            DailyUsageEntry(date: DailyUsageAccumulator.dayKey(from: now), totalTokens: 50, costUSD: 1)
+        ]))
+        // Remote summaries never carry account identities.
+        let remote = UsageHistoryDocument(deviceID: "ssh-lab", deviceName: "Lab", updatedAt: now,
+                                          providers: ["claude": history, "codex": history])
+        let descriptor = UsageHistoryDescriptor(scope: .machineLocal, estimatedCost: true, sourceNote: "logs")
+
+        // One Claude login and a plain Codex login: everything is counted, nothing reported.
+        let single = ["claude": descriptor, "codex": descriptor]
+        XCTAssertEqual(UsageHistoryAggregator.merged(localSnapshots: [:], peerDocuments: [remote],
+                                                     descriptors: single, now: now)["claude"]?
+            .series.daily.first?.totalTokens, 50)
+        XCTAssertTrue(UsageHistoryAggregator.unattributedFamilies(in: remote, descriptors: single).isEmpty)
+
+        // Two Claude cards and two Codex accounts: merged leaves the remote history out, and
+        // unattributedFamilies names both so the device row can say so.
+        let identities = ["claude@1234abcd": "org-a", "claude@87654321": "org-b",
+                          "codex": "a|a@example.com", "codex@1234abcd": "b|b@example.com"]
+        let multiple = identities.mapValues { _ in descriptor }
+        let merged = UsageHistoryAggregator.merged(localSnapshots: [:], peerDocuments: [remote],
+                                                   descriptors: multiple, providerIdentityKeys: identities, now: now)
+        XCTAssertTrue(merged.values.allSatisfy { $0.series.daily.isEmpty })
+        XCTAssertEqual(UsageHistoryAggregator.unattributedFamilies(
+            in: remote, descriptors: multiple, providerIdentityKeys: identities
+        ), ["claude", "codex"])
+
+        // A provider turned off on this Mac is the user's choice, not a gap to report.
+        XCTAssertTrue(UsageHistoryAggregator.unattributedFamilies(in: remote, descriptors: [:]).isEmpty)
+    }
 }

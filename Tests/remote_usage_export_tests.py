@@ -76,6 +76,44 @@ class RemoteUsageExportTests(unittest.TestCase):
                 if old_claude is not None:
                     os.environ["CLAUDE_CONFIG_DIR"] = old_claude
 
+    def test_session_moved_during_scan_is_skipped_instead_of_failing_the_device(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            old_home = os.environ.get("HOME")
+            old_codex = os.environ.pop("CODEX_HOME", None)
+            old_claude = os.environ.pop("CLAUDE_CONFIG_DIR", None)
+            original_discover = exporter.discover
+            os.environ["HOME"] = temporary
+            try:
+                home = pathlib.Path(temporary)
+                claude = home / ".claude/projects/example/session.jsonl"
+                claude.parent.mkdir(parents=True)
+                when = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+                claude.write_text(json.dumps({
+                    "timestamp": when, "sessionId": "session", "requestId": "request", "version": "2.1.0",
+                    "message": {"id": "message", "model": "claude-sonnet-4-5",
+                                "usage": {"input_tokens": 10, "output_tokens": 3}}
+                }) + "\n")
+                vanished = home / ".codex/sessions/2026/10/04/moved-to-archive.jsonl"
+
+                def discover_with_vanished_file(provider):
+                    found = original_discover(provider)
+                    return found + [vanished] if provider == "codex" else found
+
+                exporter.discover = discover_with_vanished_file
+                result = self.run_export()
+                self.assertEqual(result["codex"], [])
+                self.assertEqual(len(result["claude"]), 1)
+            finally:
+                exporter.discover = original_discover
+                if old_home is None:
+                    os.environ.pop("HOME", None)
+                else:
+                    os.environ["HOME"] = old_home
+                if old_codex is not None:
+                    os.environ["CODEX_HOME"] = old_codex
+                if old_claude is not None:
+                    os.environ["CLAUDE_CONFIG_DIR"] = old_claude
+
     @staticmethod
     def run_export():
         output = io.StringIO()

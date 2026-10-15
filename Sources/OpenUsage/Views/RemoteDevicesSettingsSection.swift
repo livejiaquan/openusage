@@ -62,6 +62,7 @@ struct RemoteDevicesSettingsSection: View {
                         device: device, lastUpdated: store.lastUpdated[device.id],
                         error: store.errors[device.id], isRefreshing: store.isRefreshing(device.id),
                         historyIsEmpty: store.historyIsEmpty(device.id),
+                        hiddenProviders: store.hiddenProviders(device.id),
                         onEdit: { editor = EditorSession(device: device) },
                         onRefresh: { Task { await store.refresh(device.id) } },
                         onRemove: { pendingRemoval = device }
@@ -89,6 +90,7 @@ struct RemoteDeviceRow: View {
     let error: String?
     let isRefreshing: Bool
     let historyIsEmpty: Bool
+    let hiddenProviders: [String]
     let onEdit: () -> Void
     let onRefresh: () -> Void
     let onRemove: () -> Void
@@ -96,75 +98,107 @@ struct RemoteDeviceRow: View {
     @State private var showErrorDetails = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: device.platform == .macOS ? "laptopcomputer" : "desktopcomputer")
-                    .font(.body).foregroundStyle(.secondary).frame(width: 20, height: 24)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(device.name).font(.body.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
-                    Text(endpoint).font(.caption).foregroundStyle(.secondary)
-                        .lineLimit(1).truncationMode(.middle)
-                    if device.platform == .wsl {
-                        Text("WSL · \(device.wslDistribution ?? "Default distribution")\(device.wslUser.map { " · \($0)" } ?? "")")
-                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    } else {
-                        Text(device.platform.rawValue).font(.caption).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 8) {
+                Circle().fill(statusColor).frame(width: 8, height: 8).accessibilityHidden(true)
+                Text(device.name).font(.body.weight(.semibold)).lineLimit(1).truncationMode(.tail)
+                Spacer(minLength: 4)
+                if isRefreshing {
+                    ProgressView().controlSize(.mini).frame(width: 24, height: 24)
+                        .accessibilityLabel("Importing history for \(device.name)")
+                } else {
+                    Button(action: onRefresh) {
+                        Image(systemName: "arrow.clockwise").frame(width: 24, height: 24).contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain).foregroundStyle(.secondary).disabled(!device.enabled)
+                    .accessibilityLabel("\(error == nil ? "Refresh" : "Retry") history for \(device.name)")
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
                 Menu {
                     Button("Edit Device", systemImage: "pencil", action: onEdit).disabled(isRefreshing)
                     Divider()
                     Button("Remove Device", systemImage: "trash", role: .destructive, action: onRemove)
                 } label: {
-                    Image(systemName: "ellipsis").frame(width: 28, height: 28).contentShape(Rectangle())
+                    Image(systemName: "ellipsis").frame(width: 24, height: 24).contentShape(Rectangle())
                 }
                 .menuIndicator(.hidden).buttonStyle(.plain)
                 .accessibilityLabel("Actions for \(device.name)")
             }
-            HStack(spacing: 6) {
-                if isRefreshing {
-                    ProgressView().controlSize(.mini)
-                    Text("Importing History…")
-                } else if !device.enabled {
-                    Label("Paused", systemImage: "pause.circle")
-                } else if error != nil {
-                    Label("Import Failed", systemImage: "exclamationmark.triangle").foregroundStyle(Theme.notice)
-                } else if lastUpdated != nil {
-                    Label(historyIsEmpty ? "No History Found" : "History Imported",
-                          systemImage: historyIsEmpty ? "tray" : "checkmark.circle")
-                } else {
-                    Label("Not Imported Yet", systemImage: "clock")
+            Group {
+                Text(summary).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
+                statusLine
+                if let error, showErrorDetails {
+                    Text(error).textSelection(.enabled).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true).padding(.top, 2)
                 }
-                Spacer(minLength: 4)
-                Button(error == nil ? "Refresh" : "Retry", action: onRefresh)
-                    .buttonStyle(.borderless).disabled(isRefreshing || !device.enabled)
-                    .accessibilityLabel("\(error == nil ? "Refresh" : "Retry") history for \(device.name)")
-            }
-            .font(.caption.weight(.medium))
-            if let lastUpdated {
-                Text("Last imported \(lastUpdated.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-            if let error {
-                DisclosureGroup(isExpanded: $showErrorDetails) {
-                    Text(error).textSelection(.enabled).font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true).padding(.top, 4)
-                } label: {
-                    Text(lastUpdated == nil ? "Saved. Retry or edit the connection." : "Showing saved history. View error.")
-                        .font(.caption)
+                if !hiddenProviders.isEmpty {
+                    Label(hiddenProvidersNotice, systemImage: "eye.slash").foregroundStyle(Theme.notice)
+                        .fixedSize(horizontal: false, vertical: true).padding(.top, 2)
                 }
-                .font(.caption)
-            } else if lastUpdated != nil && historyIsEmpty {
-                Text("No Claude or Codex records were found for this user.")
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
+            .font(.caption).padding(.leading, 16)
         }
         .padding(.horizontal, 12).padding(.vertical, density.controlRowPadding + 3)
     }
 
-    private var endpoint: String {
-        "\(device.sshUser.map { "\($0)@" } ?? "")\(device.host)\(device.sshPort.map { ":\($0)" } ?? "")"
+    @ViewBuilder
+    private var statusLine: some View {
+        if isRefreshing {
+            Text("Importing history…").foregroundStyle(.secondary)
+        } else if !device.enabled {
+            Text("Paused").foregroundStyle(.secondary)
+        } else if error != nil {
+            HStack(spacing: 4) {
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    Text(lastUpdated.map { "Import failed · showing data from \(Self.age($0, now: context.date))" }
+                         ?? "Import failed")
+                        .foregroundStyle(Theme.notice).lineLimit(1)
+                }
+                Button(showErrorDetails ? "Hide" : "Details") { showErrorDetails.toggle() }
+                    .buttonStyle(.borderless).fixedSize()
+                    .accessibilityLabel(showErrorDetails ? "Hide error details" : "Show error details")
+            }
+        } else if let lastUpdated {
+            TimelineView(.periodic(from: .now, by: 60)) { context in
+                Text("Updated \(Self.age(lastUpdated, now: context.date))"
+                     + (historyIsEmpty ? " · no Claude or Codex logs found" : ""))
+                    .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        } else {
+            Text("Not imported yet").foregroundStyle(.secondary)
+        }
+    }
+
+    private var statusColor: Color {
+        if isRefreshing || !device.enabled || lastUpdated == nil && error == nil { return .secondary.opacity(0.5) }
+        if error != nil || !hiddenProviders.isEmpty { return Color(nsColor: .systemOrange) }
+        return historyIsEmpty ? .secondary.opacity(0.5) : Color(nsColor: .systemGreen)
+    }
+
+    private var summary: String {
+        let endpoint = "\(device.sshUser.map { "\($0)@" } ?? "")\(device.host)\(device.sshPort.map { ":\($0)" } ?? "")"
+        let system: String
+        switch device.platform {
+        case .wsl:
+            system = "WSL \(device.wslDistribution ?? "default")\(device.wslUser.map { " · \($0)" } ?? "")"
+        case .linux, .windows, .macOS:
+            system = device.platform.rawValue
+        }
+        return "\(endpoint) · \(system)"
+    }
+
+    private var hiddenProvidersNotice: String {
+        let names = hiddenProviders.formatted(.list(type: .and))
+        let verb = hiddenProviders.count == 1 ? "isn't" : "aren't"
+        return "\(names) \(verb) counted on the dashboard. This Mac has more than one account for "
+            + (hiddenProviders.count == 1 ? "it" : "them") + ", so this device's history can't be matched to one."
+    }
+
+    /// Same compact age as iCloud Sync's device rows.
+    static func age(_ date: Date, now: Date) -> String {
+        let seconds = max(0, now.timeIntervalSince(date))
+        if seconds < 60 { return "just now" }
+        if seconds < 3_600 { return "\(max(1, Int(seconds / 60)))m ago" }
+        if seconds < 86_400 { return "\(max(1, Int(seconds / 3_600)))h ago" }
+        return "\(max(1, Int(seconds / 86_400)))d ago"
     }
 }

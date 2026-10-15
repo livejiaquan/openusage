@@ -12,40 +12,80 @@ enum UsageHistoryAggregator {
     ) -> [String: ProviderUsageHistory] {
         var inputs: [String: [ProviderUsageHistory]] = [:]
         let peerDocuments = UsageHistoryDocument.newestByDevice(peerDocuments)
-        let localClaudeCards = Set(descriptors.keys.filter {
-            ProviderAccountID.family(of: $0) == "claude"
-        }).union(providerIdentityKeys.keys.filter {
-            ProviderAccountID.family(of: $0) == "claude"
-        })
+        let localClaudeCards = claudeCardIDs(descriptors: descriptors, providerIdentityKeys: providerIdentityKeys)
         for (providerID, descriptor) in descriptors where descriptor.scope == .machineLocal {
             if let local = localSnapshots[providerID]?.usageHistory {
                 inputs[providerID, default: []].append(local)
             }
             for document in peerDocuments {
-                let peer: ProviderUsageHistory?
-                if ProviderAccountID.family(of: providerID) == "claude" {
-                    peer = accountHistory(
-                        in: document,
-                        family: "claude",
-                        identity: providerIdentityKeys[providerID],
-                        allowsUnattributedHistory: localClaudeCards.count <= 1
-                    )
-                } else if ProviderAccountID.family(of: providerID) == "codex",
-                          providerIdentityKeys[providerID]?.contains("|") == true || providerID.contains("@") {
-                    peer = accountHistory(
-                        in: document, family: "codex", identity: providerIdentityKeys[providerID],
-                        allowsUnattributedHistory: false
-                    )
-                } else {
-                    peer = document.providers[providerID]
-                }
-                if let peer {
+                if let peer = peerHistory(
+                    for: providerID, in: document, providerIdentityKeys: providerIdentityKeys,
+                    localClaudeCards: localClaudeCards
+                ) {
                     inputs[providerID, default: []].append(peer)
                 }
             }
         }
         let includedDays = UsageHistoryWindow.dayKeys(through: now)
         return inputs.mapValues { merge($0, includedDays: includedDays) }
+    }
+
+    /// Provider families that have history in `document` but that `merged` can't attribute to any
+    /// enabled local card, for example a remote device's Claude history while this Mac has two
+    /// Claude accounts. Remote Devices reports these instead of leaving a silent gap.
+    static func unattributedFamilies(
+        in document: UsageHistoryDocument,
+        descriptors: [String: UsageHistoryDescriptor],
+        providerIdentityKeys: [String: String] = [:]
+    ) -> Set<String> {
+        let localClaudeCards = claudeCardIDs(descriptors: descriptors, providerIdentityKeys: providerIdentityKeys)
+        let localIDs = descriptors.filter { $0.value.scope == .machineLocal }.map(\.key)
+        var result: Set<String> = []
+        for (providerID, history) in document.providers where !history.series.daily.isEmpty {
+            let family = ProviderAccountID.family(of: providerID)
+            let candidates = localIDs.filter { ProviderAccountID.family(of: $0) == family }
+            // A disabled provider is the user's choice, not an attribution gap.
+            guard !candidates.isEmpty else { continue }
+            let attributed = candidates.contains {
+                peerHistory(for: $0, in: document, providerIdentityKeys: providerIdentityKeys,
+                            localClaudeCards: localClaudeCards) != nil
+            }
+            if !attributed { result.insert(family) }
+        }
+        return result
+    }
+
+    private static func claudeCardIDs(
+        descriptors: [String: UsageHistoryDescriptor], providerIdentityKeys: [String: String]
+    ) -> Set<String> {
+        Set(descriptors.keys.filter {
+            ProviderAccountID.family(of: $0) == "claude"
+        }).union(providerIdentityKeys.keys.filter {
+            ProviderAccountID.family(of: $0) == "claude"
+        })
+    }
+
+    private static func peerHistory(
+        for providerID: String,
+        in document: UsageHistoryDocument,
+        providerIdentityKeys: [String: String],
+        localClaudeCards: Set<String>
+    ) -> ProviderUsageHistory? {
+        if ProviderAccountID.family(of: providerID) == "claude" {
+            return accountHistory(
+                in: document,
+                family: "claude",
+                identity: providerIdentityKeys[providerID],
+                allowsUnattributedHistory: localClaudeCards.count <= 1
+            )
+        } else if ProviderAccountID.family(of: providerID) == "codex",
+                  providerIdentityKeys[providerID]?.contains("|") == true || providerID.contains("@") {
+            return accountHistory(
+                in: document, family: "codex", identity: providerIdentityKeys[providerID],
+                allowsUnattributedHistory: false
+            )
+        }
+        return document.providers[providerID]
     }
 
     private static func accountHistory(
