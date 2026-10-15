@@ -55,8 +55,12 @@ final class RemoteUsageDeviceDraftTests: XCTestCase {
         XCTAssertEqual(saved.wslUser, "linuxuser")
     }
 
+    func testNewDevicesStartOnLinux() {
+        XCTAssertEqual(RemoteUsageDeviceDraft().platform, .linux)
+    }
+
     func testHiddenWSLFieldsCannotBlockOrLeakIntoOtherSystems() throws {
-        var draft = validDraft()
+        var draft = validDraft(platform: .wsl)
         draft.wslUser = "invalid user"
         draft.wslDistribution = "Ubuntu;whoami"
         XCTAssertNotNil(draft.validationErrors[.wslUser])
@@ -69,21 +73,22 @@ final class RemoteUsageDeviceDraftTests: XCTestCase {
     }
 
     func testProbeIdentityChangesForConnectionEditsButNotADeviceRename() {
-        var draft = validDraft()
+        var draft = validDraft(platform: .wsl)
         let tested = draft.connectionIdentity
         draft.name = "New display name"
         XCTAssertEqual(draft.connectionIdentity, tested)
         draft.host = "other-host"
         XCTAssertNotEqual(draft.connectionIdentity, tested)
-        draft = validDraft()
+        draft = validDraft(platform: .wsl)
         draft.wslUser = "another-user"
         XCTAssertNotEqual(draft.connectionIdentity, tested)
     }
 
-    private func validDraft() -> RemoteUsageDeviceDraft {
+    private func validDraft(platform: RemoteUsageDevice.Platform = .linux) -> RemoteUsageDeviceDraft {
         var draft = RemoteUsageDeviceDraft()
         draft.name = "Lab"
         draft.host = "lab"
+        draft.platform = platform
         return draft
     }
 }
