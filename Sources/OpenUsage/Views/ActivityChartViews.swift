@@ -103,19 +103,19 @@ struct QuietSegmentedControl: View {
 }
 
 /// A small green dot that breathes slowly (4.5 s) while the panel is visible and motion is allowed.
+/// Opacity is a pure function of the clock (`VisibilityGatedTimeline`): one stable view whatever the
+/// state, so the dot never restarts its animation or picks up a neighbor's layout animation when the
+/// number beside it changes, the card collapses, or the panel reopens.
 struct LiveDot: View {
     var active = true
-    @Environment(\.popoverIsVisible) private var shown
-    @Environment(\.reduceAnimations) private var reduceAnimations
 
     var body: some View {
-        let dot = Circle().fill(active ? Color.green : Color.secondary).frame(width: 6, height: 6)
-        if active && shown && !reduceAnimations {
-            dot.phaseAnimator([false, true]) { view, bright in
-                view.opacity(bright ? 1 : 0.45)
-            } animation: { _ in .easeInOut(duration: 2.25) }
-        } else {
-            dot
+        VisibilityGatedTimeline { t in
+            Circle()
+                .fill(active ? Color.green : Color.secondary)
+                .opacity(active && t != 0 ? 0.725 + 0.275 * cos(t * 2 * Double.pi / 4.5) : 1)
         }
+        .frame(width: 6, height: 6)
+        .accessibilityHidden(true)
     }
 }

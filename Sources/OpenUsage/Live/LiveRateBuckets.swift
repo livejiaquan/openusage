@@ -1,12 +1,14 @@
 import Foundation
 
 /// Tokens spent over the last 30 minutes in 30-second buckets, aligned to wall-clock 30 s boundaries.
-/// The live Activity card reads a trailing-five-minute rate and a 60-point history from it. A value
+/// The live Activity card reads a trailing-ten-minute rate (Syrtis's window) and its history from it. A value
 /// type, so the local tails, remote samples, and the composer can copy and merge it freely.
 struct LiveRateBuckets: Equatable, Sendable {
     static let bucketDuration: TimeInterval = 30
     static let bucketCount = 60
-    static let trailingWindow: TimeInterval = 300
+    /// Ten minutes, like Syrtis: long enough that one big request (Claude re-reads its whole context
+    /// from cache every turn) doesn't swing the number, short enough to feel live.
+    static let trailingWindow: TimeInterval = 600
     /// Events stamped this far in the future still count (clock skew between the CLI and this Mac).
     static let futureTolerance: TimeInterval = 60
 
@@ -72,9 +74,9 @@ struct LiveRateBuckets: Equatable, Sendable {
         return current.buckets.map { Double($0) * perMinute }
     }
 
-    /// Tokens per minute, oldest first, each point the trailing-five-minute rate ending at that bucket —
+    /// Tokens per minute, oldest first, each point the trailing-ten-minute rate ending at that bucket —
     /// the same measure as the headline — so the chart reads as a calm trend, not raw bursts. Only points
-    /// with a full five minutes behind them (51 of 60), so the chart never starts with a false ramp.
+    /// with a full window behind them (41 of 60), so the chart never starts with a false ramp.
     func smoothedHistory(now: Date) -> [Double] {
         var current = self
         current.advance(to: now)
@@ -87,6 +89,16 @@ struct LiveRateBuckets: Equatable, Sendable {
             return Double(running) / minutes
         }
         return Array(all.dropFirst(window - 1))
+    }
+
+    /// When tokens last landed — the end of the newest non-empty bucket (never past `now`) — or nil
+    /// when the whole window is quiet. Drives the card's "last active 12m ago".
+    func lastActivity(now: Date) -> Date? {
+        var current = self
+        current.advance(to: now)
+        guard let index = current.buckets.lastIndex(where: { $0 > 0 }) else { return nil }
+        let slot = current.newestSlot - (Self.bucketCount - 1 - index)
+        return min(Date(timeIntervalSinceReferenceDate: Double(slot + 1) * Self.bucketDuration), now)
     }
 
     /// Sums parts bucket by bucket. After the clock steps backwards some parts are anchored ahead of

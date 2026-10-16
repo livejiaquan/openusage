@@ -41,11 +41,11 @@ final class LiveLogTailTests: XCTestCase {
         let url = try write("a.jsonl", claudeLine(id: "m1", request: "r1", input: 1_000, at: now.addingTimeInterval(-60)) + "\n")
         let tail = tail(.claude, [url])
         let first = await tail.poll(now: now)
-        XCTAssertEqual(first.ratePerMinute(now: now), 200, accuracy: 0.001)
+        XCTAssertEqual(first.ratePerMinute(now: now), 100, accuracy: 0.001)
 
         try append(url, claudeLine(id: "m2", request: "r2", input: 500, at: now.addingTimeInterval(-30)) + "\n")
         let second = await tail.poll(now: now)
-        XCTAssertEqual(second.ratePerMinute(now: now), 300, accuracy: 0.001)
+        XCTAssertEqual(second.ratePerMinute(now: now), 150, accuracy: 0.001)
     }
 
     func testDuplicateClaudeMessageCountsOnce() async throws {
@@ -54,7 +54,7 @@ final class LiveLogTailTests: XCTestCase {
         let a = try write("a.jsonl", line)
         let b = try write("b.jsonl", line)
         let buckets = await tail(.claude, [a, b]).poll(now: now)
-        XCTAssertEqual(buckets.ratePerMinute(now: now), 200, accuracy: 0.001)
+        XCTAssertEqual(buckets.ratePerMinute(now: now), 100, accuracy: 0.001)
     }
 
     func testLargerDuplicateReplacesTheSmallerOne() async throws {
@@ -64,7 +64,7 @@ final class LiveLogTailTests: XCTestCase {
         _ = await tail.poll(now: now)
         try append(url, claudeLine(id: "m1", request: "r1", input: 500, at: now.addingTimeInterval(-60)) + "\n")
         let buckets = await tail.poll(now: now)
-        XCTAssertEqual(buckets.ratePerMinute(now: now), 100, accuracy: 0.001)   // 500 tokens over 5 minutes
+        XCTAssertEqual(buckets.ratePerMinute(now: now), 50, accuracy: 0.001)   // 500 tokens over 10 minutes
     }
 
     func testLargerDuplicateInAnotherFileMovesTheCount() async throws {
@@ -72,7 +72,7 @@ final class LiveLogTailTests: XCTestCase {
         let a = try write("a.jsonl", claudeLine(id: "m1", request: "r1", input: 100, at: now.addingTimeInterval(-60)) + "\n")
         let b = try write("b.jsonl", claudeLine(id: "m1", request: "r1", input: 500, at: now.addingTimeInterval(-60)) + "\n")
         let buckets = await tail(.claude, [a, b]).poll(now: now)
-        XCTAssertEqual(buckets.ratePerMinute(now: now), 100, accuracy: 0.001)
+        XCTAssertEqual(buckets.ratePerMinute(now: now), 50, accuracy: 0.001)
     }
 
     func testSidechainReplayUnderANewRequestIsNotCounted() async throws {
@@ -81,7 +81,7 @@ final class LiveLogTailTests: XCTestCase {
         let replay = claudeLine(id: "m1", request: "r2", input: 1_000, at: now.addingTimeInterval(-50), sidechain: true)
         let url = try write("a.jsonl", parent + "\n" + replay + "\n")
         let buckets = await tail(.claude, [url]).poll(now: now)
-        XCTAssertEqual(buckets.ratePerMinute(now: now), 200, accuracy: 0.001)
+        XCTAssertEqual(buckets.ratePerMinute(now: now), 100, accuracy: 0.001)
     }
 
     func testCodexTokenCountsUseParserDeltas() async throws {
@@ -97,7 +97,7 @@ final class LiveLogTailTests: XCTestCase {
         let expected = CodexLogUsageScanner.parseFile(Data(lines.utf8)).map(\.total).reduce(0, +)
         XCTAssertEqual(expected, 180, "the parser reports the first total, then only the delta")
         let buckets = await tail(.codex, [url]).poll(now: now)
-        XCTAssertEqual(buckets.ratePerMinute(now: now), Double(expected) / 5, accuracy: 0.001)
+        XCTAssertEqual(buckets.ratePerMinute(now: now), Double(expected) / 10, accuracy: 0.001)
     }
 
     func testPartialLineIsReadOnceComplete() async throws {
@@ -109,7 +109,7 @@ final class LiveLogTailTests: XCTestCase {
 
         try append(url, "\n")
         let after = await tail.poll(now: now)
-        XCTAssertEqual(after.ratePerMinute(now: now), 200, accuracy: 0.001)
+        XCTAssertEqual(after.ratePerMinute(now: now), 100, accuracy: 0.001)
     }
 
     func testTruncatedFileRestartsWithoutDoubleCounting() async throws {
@@ -119,11 +119,11 @@ final class LiveLogTailTests: XCTestCase {
         let url = try write("a.jsonl", first + second)
         let tail = tail(.claude, [url])
         let full = await tail.poll(now: now)
-        XCTAssertEqual(full.ratePerMinute(now: now), 400, accuracy: 0.001)
+        XCTAssertEqual(full.ratePerMinute(now: now), 200, accuracy: 0.001)
 
         _ = try write("a.jsonl", first)
         let rewritten = await tail.poll(now: now)
-        XCTAssertEqual(rewritten.ratePerMinute(now: now), 200, accuracy: 0.001)
+        XCTAssertEqual(rewritten.ratePerMinute(now: now), 100, accuracy: 0.001)
     }
 
     func testFilesOlderThanThirtyMinutesAreNotRead() async {

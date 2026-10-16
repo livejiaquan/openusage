@@ -156,6 +156,7 @@ final class AppContainer {
         self.iCloudSync = iCloudSync
         self.remoteDevices = remoteDevices
         self.liveActivity = liveActivity
+        liveActivity.prewarm()
         self.liveOwnerCardIDs = LiveActivityComposer.defaultSourceOwners(ProviderAccountsStore(defaults: .standard).records)
 
         // The resets popover's claim service, sharing the Codex provider's credential loading and HTTP

@@ -46,8 +46,7 @@ struct ResetListRows: View {
                 } label: {
                     HStack(spacing: 5) {
                         Text(expanded ? "Show Less" : "Show \(layout.hidden) More")
-                        Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 9, weight: .semibold))
+                        DisclosureChevron(expanded: expanded, size: 9)
                     }
                     .font(.system(size: density.supportingPointSize))
                     .foregroundStyle(.secondary)
@@ -84,7 +83,8 @@ struct ResetListRows: View {
                                                   set: { if !$0 { claimTarget = nil } }),
                              arrowEdge: .trailing) {
                         RateLimitResetsDetail(count: data.resetCreditCount, expiries: expiries,
-                                              onHoverChange: { _ in }, onPinChange: nil, claim: claim)
+                                              onHoverChange: { _ in }, onPinChange: nil, claim: claim,
+                                              startConfirmingAt: expiry)
                             .padding(10)
                     }
             }

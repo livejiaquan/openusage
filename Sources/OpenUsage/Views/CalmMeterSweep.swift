@@ -59,11 +59,13 @@ struct LiveRateChip: View {
     var body: some View {
         HStack(spacing: 4) {
             LiveDot(active: rate > 0)
-            Text("\(LiveFormat.rate(rate))/min").monospacedDigit().contentTransition(.numericText())
+            Text(rate > 0 ? "\(LiveFormat.rate(rate))/min" : "idle")
+                .monospacedDigit()
+                .contentTransition(.numericText())
         }
         .font(.system(size: density.supportingPointSize, weight: .medium))
         .foregroundStyle(.secondary)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(providerName), \(Int(rate.rounded())) tokens per minute")
+        .accessibilityLabel(rate > 0 ? "\(providerName), \(Int(rate.rounded())) tokens per minute" : "\(providerName), idle")
     }
 }

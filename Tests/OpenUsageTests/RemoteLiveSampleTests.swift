@@ -17,7 +17,7 @@ final class RemoteLiveSampleTests: XCTestCase {
 
     func testSampleBucketsRecentEvents() {
         let sample = RemoteLiveSample.from(events: events(codexAt: [-120, -40 * 60]), deviceID: "ssh-lab", importedAt: importedAt)
-        XCTAssertEqual(sample.ratePerMinute, 200, accuracy: 0.001)    // only the -2 min event, /5 min
+        XCTAssertEqual(sample.ratePerMinute, 100, accuracy: 0.001)    // only the -2 min event, /10 min
         XCTAssertEqual(sample.history.reduce(0, +), 2_000, accuracy: 0.001)
     }
 
@@ -27,8 +27,8 @@ final class RemoteLiveSampleTests: XCTestCase {
                                                 messageID: "m1", requestID: "r1")
         let events = RemoteUsageEvents(schema: SSHRemoteUsageClient.schema, codex: [], claude: [entry, entry])
         let sample = RemoteLiveSample.from(events: events, deviceID: "ssh-lab", importedAt: importedAt)
-        XCTAssertEqual(sample.ratePerMinute, 100, accuracy: 0.001)
-        XCTAssertEqual(sample.ratePerMinute(.claude), 100, accuracy: 0.001)
+        XCTAssertEqual(sample.ratePerMinute, 50, accuracy: 0.001)
+        XCTAssertEqual(sample.ratePerMinute(.claude), 50, accuracy: 0.001)
         XCTAssertEqual(sample.ratePerMinute(.codex), 0, accuracy: 0.001)
     }
 

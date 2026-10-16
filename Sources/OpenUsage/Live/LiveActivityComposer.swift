@@ -4,7 +4,7 @@ struct LiveSeries: Equatable, Identifiable {
     let id: String
     let name: String
     let note: String?
-    /// Chart points in tokens per minute (trailing five-minute rate), oldest first; nil when the source
+    /// Chart points in tokens per minute (trailing ten-minute rate), oldest first; nil when the source
     /// has nothing current to show.
     let history: [Double]?
     let rate: Double?
@@ -17,6 +17,8 @@ struct LiveActivityView: Equatable {
     var providerSeries: [LiveSeries]
     var deviceSeries: [LiveSeries]
     var showsDeviceBreakdown: Bool
+    /// When tokens last landed in scope (within the 30-minute window), for "Idle · last active 12m ago".
+    var lastActiveAt: Date? = nil
 }
 
 /// Pure composition of local and remote live data for a scope, so the rules (scope filtering, frozen
@@ -74,8 +76,12 @@ enum LiveActivityComposer {
         }
 
         let totalRate: Double? = providerSeries.isEmpty ? nil : providerRates.values.reduce(0, +)
+        let localLast = includesLocal ? LiveRateBuckets.merged(Array(local.values), now: now).lastActivity(now: now) : nil
+        let lastActiveAt = ([localLast].compactMap { $0 }
+            + remoteInScope.compactMap { $0.buckets.lastActivity(now: $0.importedAt) }).max()
         return LiveActivityView(totalRate: totalRate, providerRates: providerRates, providerSeries: providerSeries,
-                                deviceSeries: deviceSeries, showsDeviceBreakdown: scope == "all" && !devices.isEmpty)
+                                deviceSeries: deviceSeries, showsDeviceBreakdown: scope == "all" && !devices.isEmpty,
+                                lastActiveAt: lastActiveAt)
     }
 
     /// The single provider card per family that shows the live chip: the bare family id ("claude"), or,

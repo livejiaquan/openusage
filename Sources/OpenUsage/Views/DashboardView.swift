@@ -58,7 +58,8 @@ struct DashboardView: View {
     /// because the native scroll edge effect — not whitespace — provides the visual separation.
     private static let contentBottomGap: CGFloat = 12
     /// Footer content starts at the same standard padding as the provider containers.
-    private static let footerHorizontalPadding: CGFloat = outerPadding
+    /// The footer text lines up with Usage From and the provider headers (4 pt inside the cards' edge).
+    private static let footerHorizontalPadding: CGFloat = outerPadding + 4
     private static let reorderSpace = "popoverReorderSpace"
     /// One width across both densities — switching density shouldn't move the popover's left edge.
     private static let popoverWidth: CGFloat = 320

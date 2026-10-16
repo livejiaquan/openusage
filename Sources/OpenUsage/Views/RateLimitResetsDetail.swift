@@ -29,6 +29,9 @@ struct RateLimitResetsDetail: View {
     /// Claims the reset credit expiring at the given instant, using the given idempotency key (see the
     /// type doc). `nil` makes the timeline read-only (no "Use" affordance).
     var claim: ((_ expiry: Date, _ redeemRequestID: String) async -> ResetClaimOutcome)?
+    /// Opens straight into this credit's confirm step (the dashboard's per-reset "Use"), so the person
+    /// confirms the reset they clicked instead of hunting for it again in the timeline.
+    var startConfirmingAt: Date? = nil
 
     @AppStorage(DensitySetting.key) private var density = DensitySetting.regular
 
@@ -109,6 +112,9 @@ struct RateLimitResetsDetail: View {
             if let confirming = confirmingExpiry, !newValue.contains(confirming) {
                 cancelConfirm()
             }
+        }
+        .onAppear {
+            if let date = startConfirmingAt, claim != nil, expiries.contains(date) { beginConfirm(date) }
         }
     }
 
@@ -294,7 +300,7 @@ struct RateLimitResetsDetail: View {
     /// the claim stays inside the popover.
     private func confirmRow(_ entry: Entry) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Use this reset?")
+            Text("Use the reset expiring \(Formatters.monthDayLabel(entry.date))?")
                 .font(.system(size: density.supportingPointSize, weight: .medium))
                 .foregroundStyle(.primary)
             Text("Immediately reset your usage limits. This can't be undone.")

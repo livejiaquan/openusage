@@ -4,11 +4,11 @@ import XCTest
 final class LiveRateBucketsTests: XCTestCase {
     private let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
 
-    func testRateCountsOnlyTrailingFiveMinutes() {
+    func testRateCountsOnlyTrailingTenMinutes() {
         var buckets = LiveRateBuckets(now: now)
         buckets.add(tokens: 1_000, at: now.addingTimeInterval(-60), now: now)
         buckets.add(tokens: 9_000, at: now.addingTimeInterval(-600), now: now)
-        XCTAssertEqual(buckets.ratePerMinute(now: now), 200, accuracy: 0.001)
+        XCTAssertEqual(buckets.ratePerMinute(now: now), 100, accuracy: 0.001)
     }
 
     func testHistoryHasSixtyBucketsInTokensPerMinute() {
@@ -29,7 +29,7 @@ final class LiveRateBucketsTests: XCTestCase {
         fresh.add(tokens: 300, at: earlier, now: earlier)
         let merged = LiveRateBuckets.merged([ahead, fresh], now: earlier)
         XCTAssertEqual(merged.buckets.reduce(0, +), 900)
-        XCTAssertEqual(merged.ratePerMinute(now: earlier), 180, accuracy: 0.001)
+        XCTAssertEqual(merged.ratePerMinute(now: earlier), 90, accuracy: 0.001)
     }
 
     func testRemoveTakesBackTokensWithoutGoingNegative() {
@@ -45,7 +45,7 @@ final class LiveRateBucketsTests: XCTestCase {
         var buckets = LiveRateBuckets(now: now)
         buckets.add(tokens: 1_000, at: now, now: now)
         let smoothed = buckets.smoothedHistory(now: now)
-        XCTAssertEqual(smoothed.count, 51)
+        XCTAssertEqual(smoothed.count, 41)
         XCTAssertEqual(smoothed.last ?? -1, buckets.ratePerMinute(now: now), accuracy: 0.001)   // matches the headline
         XCTAssertEqual(smoothed.dropLast().reduce(0, +), 0, accuracy: 0.001)
     }
@@ -58,6 +58,16 @@ final class LiveRateBucketsTests: XCTestCase {
         let raw = buckets.history(now: now).suffix(30)
         XCTAssertGreaterThan(raw.max()! - raw.min()!, 5_000)
         XCTAssertLessThan(tail.max()! - tail.min()!, 700)
+    }
+
+    func testLastActivityIsTheNewestBucketWithTokens() throws {
+        var buckets = LiveRateBuckets(now: now)
+        XCTAssertNil(buckets.lastActivity(now: now))
+        let at = now.addingTimeInterval(-12 * 60)
+        buckets.add(tokens: 500, at: at, now: now)
+        let last = try XCTUnwrap(buckets.lastActivity(now: now))
+        XCTAssertGreaterThanOrEqual(last.timeIntervalSince(at), 0)
+        XCTAssertLessThanOrEqual(last.timeIntervalSince(at), LiveRateBuckets.bucketDuration)
     }
 
     func testLongGapClearsBuckets() {
@@ -93,7 +103,7 @@ final class LiveRateBucketsTests: XCTestCase {
         b.add(tokens: 50, at: now.addingTimeInterval(-20), now: now)
         b.add(tokens: 70, at: now.addingTimeInterval(-200), now: now)
         let merged = LiveRateBuckets.merged([a, b], now: now)
-        XCTAssertEqual(merged.ratePerMinute(now: now), 44, accuracy: 0.001)   // 220 tokens / 5 min
+        XCTAssertEqual(merged.ratePerMinute(now: now), 22, accuracy: 0.001)   // 220 tokens / 10 min
         XCTAssertEqual(merged.history(now: now).last ?? -1, 300, accuracy: 0.001)
     }
 }

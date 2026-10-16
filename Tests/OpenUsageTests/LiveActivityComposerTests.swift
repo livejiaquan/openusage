@@ -24,9 +24,9 @@ final class LiveActivityComposerTests: XCTestCase {
     func testAllScopeSumsLocalAndAvailableRemote() {
         let view = LiveActivityComposer.compose(scope: "all", local: local, remote: [sample(lab, claude: 2_000)],
                                                 devices: [lab], now: now)
-        XCTAssertEqual(view.totalRate ?? -1, (1_000 + 500 + 2_000) / 5, accuracy: 0.001)
-        XCTAssertEqual(view.providerRates[.claude] ?? -1, 600, accuracy: 0.001)
-        XCTAssertEqual(view.providerRates[.codex] ?? -1, 100, accuracy: 0.001)
+        XCTAssertEqual(view.totalRate ?? -1, (1_000 + 500 + 2_000) / 10, accuracy: 0.001)
+        XCTAssertEqual(view.providerRates[.claude] ?? -1, 300, accuracy: 0.001)
+        XCTAssertEqual(view.providerRates[.codex] ?? -1, 50, accuracy: 0.001)
         XCTAssertEqual(view.deviceSeries.map(\.name), ["This Mac", "Lab WSL"])
         XCTAssertTrue(view.showsDeviceBreakdown)
     }
@@ -34,7 +34,7 @@ final class LiveActivityComposerTests: XCTestCase {
     func testThisMacScopeIgnoresRemote() {
         let view = LiveActivityComposer.compose(scope: "local", local: local, remote: [sample(lab, claude: 2_000)],
                                                 devices: [lab], now: now)
-        XCTAssertEqual(view.totalRate ?? -1, 300, accuracy: 0.001)
+        XCTAssertEqual(view.totalRate ?? -1, 150, accuracy: 0.001)
         XCTAssertEqual(view.deviceSeries.map(\.name), ["This Mac"])
         XCTAssertFalse(view.showsDeviceBreakdown)
     }
@@ -42,8 +42,8 @@ final class LiveActivityComposerTests: XCTestCase {
     func testSingleDeviceScopeUsesOnlyThatDevice() {
         let view = LiveActivityComposer.compose(scope: "ssh-lab", local: local, remote: [sample(lab, claude: 2_000)],
                                                 devices: [lab, office], now: now)
-        XCTAssertEqual(view.totalRate ?? -1, 400, accuracy: 0.001)
-        XCTAssertEqual(view.providerRates[.claude] ?? -1, 400, accuracy: 0.001)
+        XCTAssertEqual(view.totalRate ?? -1, 200, accuracy: 0.001)
+        XCTAssertEqual(view.providerRates[.claude] ?? -1, 200, accuracy: 0.001)
         XCTAssertEqual(view.providerRates[.codex] ?? -1, 0, accuracy: 0.001)
         XCTAssertEqual(view.deviceSeries.map(\.name), ["Lab WSL"])
         XCTAssertEqual(view.deviceSeries.first?.note, "updated 2m ago")
@@ -57,7 +57,7 @@ final class LiveActivityComposerTests: XCTestCase {
         XCTAssertNil(row?.rate)
         XCTAssertNil(row?.history)
         XCTAssertEqual(row?.note, "last import 20m ago")
-        XCTAssertEqual(view.totalRate ?? -1, 300, accuracy: 0.001, "a stale device adds nothing")
+        XCTAssertEqual(view.totalRate ?? -1, 150, accuracy: 0.001, "a stale device adds nothing")
     }
 
     func testDeviceWithoutImportSaysSo() {
@@ -109,15 +109,24 @@ final class LiveActivityComposerTests: XCTestCase {
         XCTAssertEqual(LiveActivityComposer.defaultSourceOwners(records), [.codex: "codex@2"])
     }
 
+    func testLastActiveAtIsTheNewestActivityInScope() throws {
+        let view = LiveActivityComposer.compose(scope: LiveActivityComposer.thisMacID, local: local, remote: [],
+                                                devices: [], now: now)
+        let last = try XCTUnwrap(view.lastActiveAt)
+        XCTAssertLessThanOrEqual(now.timeIntervalSince(last), 60)
+        let quiet = LiveActivityComposer.compose(scope: "all", local: [:], remote: [], devices: [], now: now)
+        XCTAssertNil(quiet.lastActiveAt)
+    }
+
     func testDisabledFamilyIsLeftOut() {
         let remote = [sample(lab, claude: 2_000)]
         let view = LiveActivityComposer.compose(scope: "all", local: local, remote: remote, devices: [lab], now: now,
                                                 enabledFamilies: [.codex])
         XCTAssertEqual(view.providerSeries.map(\.id), ["codex"])
-        XCTAssertEqual(view.totalRate ?? -1, 100, accuracy: 0.001)
+        XCTAssertEqual(view.totalRate ?? -1, 50, accuracy: 0.001)
         XCTAssertNil(view.providerRates[.claude])
         // Device bands carry only enabled families too: This Mac is Codex only, the lab has no Codex.
-        XCTAssertEqual(view.deviceSeries.first { $0.id == LiveActivityComposer.thisMacID }?.rate ?? -1, 100, accuracy: 0.001)
+        XCTAssertEqual(view.deviceSeries.first { $0.id == LiveActivityComposer.thisMacID }?.rate ?? -1, 50, accuracy: 0.001)
         XCTAssertEqual(view.deviceSeries.first { $0.id == lab.id }?.rate ?? -1, 0, accuracy: 0.001)
     }
 }

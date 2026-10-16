@@ -18,6 +18,8 @@ final class LiveActivityStore {
     @ObservationIgnored private var polling = false
 
     private(set) var local: [LiveFamily: LiveRateBuckets] = [:]
+    /// False until the first poll finishes, so the card can say "Measuring…" instead of a blank.
+    private(set) var hasMeasured = false
 
     init(tails: [LiveFamily: LiveLogTail], watchedRoots: [URL], remoteDevices: RemoteUsageDeviceStore,
          now: @escaping () -> Date = Date.init) {
@@ -49,6 +51,12 @@ final class LiveActivityStore {
         }
     }
 
+    /// One poll at launch, so the first time the panel opens it already has a speed (later opens keep
+    /// the buckets from the previous session and catch up on the bytes written while closed).
+    func prewarm() {
+        Task { [weak self] in await self?.pollOnce() }
+    }
+
     func view(scope: String, enabledFamilies: Set<LiveFamily>) -> LiveActivityView {
         LiveActivityComposer.compose(scope: scope, local: local, remote: Array(remoteDevices.liveSamples.values),
                                      devices: remoteDevices.devices, now: now(), enabledFamilies: enabledFamilies)
@@ -63,6 +71,7 @@ final class LiveActivityStore {
             next[family] = await tail.poll(now: now())
         }
         if next != local { local = next }
+        if !hasMeasured { hasMeasured = true }
     }
 
     /// The default Claude and Codex homes (plus `CLAUDE_CONFIG_DIR` / `CODEX_HOME` overrides) that the

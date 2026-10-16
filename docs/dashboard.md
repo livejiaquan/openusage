@@ -14,9 +14,11 @@ When you expand a card, the tucked-away metrics open below the caret as a single
 
 ## Activity
 
-The card at the top shows how fast tokens are being used right now. The big number defaults to tokens per minute over the last 5 minutes; click it to switch to Spent Today or Tokens Today instead. Below it a small stacked chart shows the same five-minute speed over the last half hour as a smooth line, one band per provider (or per device, with the **Providers / Devices** switch). The dot next to the number breathes while anything is in use and goes still when nothing is.
+The card at the top shows how fast tokens are being used right now. The big number defaults to tokens per minute over the last 10 minutes (the same window Syrtis uses, so one large request doesn't swing it); click the unit to switch to Spent Today or Tokens Today instead. Tokens include cache reads, like the daily totals. Below it a small stacked chart shows that same speed over the last half hour as a smooth line, one band per provider (or per device, with the **Providers / Devices** switch). The dot next to the number breathes while anything is in use and goes still when nothing is.
 
-Speed for this Mac comes from Claude Code and Codex logs as they are written, and is only measured while the panel is open. Remote devices update at each import, so their speed is a snapshot; a device that hasn't imported in 15 minutes, or whose last import failed, is shown as not live with how long ago it last updated. **Usage From** applies here too, and a provider turned off in Customize is left out of the card, just as it is left out of Total Spend.
+The speed has three states: **Measuring…** while the logs are read for the first time after launch (the app takes one reading at launch, so this is rare), the number while anything is in use, and **Idle** with when things last moved (`last active 12m ago`, or `no activity in 30 min`). Claude and Codex headers show `idle` the same way.
+
+Speed for this Mac comes from Claude Code and Codex logs as they are written, and is only measured while the panel is open (plus that one reading at launch). Remote devices update at each import, so their speed is a snapshot; a device that hasn't imported in 15 minutes, or whose last import failed, is shown as not live with how long ago it last updated. **Usage From** applies here too, and a provider turned off in Customize is left out of the card, just as it is left out of Total Spend.
 
 When a quota meter is on track to run out before it resets, the card adds one line under the provider name, like `Session runs out about 40m before it resets at this pace.` Only the soonest one is shown. Collapse the card with its chevron to keep just the speed on one line.
 
@@ -57,7 +59,7 @@ account-wide. Quotas, plans, balances, and provider errors always describe this 
 
 **Top Models Today** lists the models with the most tokens today, with each one's share. It's on by default and sits behind the provider's caret.
 
-On demand, Today, Yesterday, and Last 30 Days share one **Usage** row with three columns. Each column keeps the amber warning when a model couldn't be priced, and clicking a column opens that period's model breakdown. **Rate Limit Resets** shows one line per reset, soonest expiry first, with a countdown that turns orange when it's close; only two show until **Show N More**. For Codex, **Use** on a line opens the reset confirmation.
+On demand, Today, Yesterday, and Last 30 Days share one **Usage** row with three columns. Each column keeps the amber warning when a model couldn't be priced, and clicking a column opens that period's model breakdown. **Rate Limit Resets** shows one line per reset, soonest expiry first, with a countdown that turns orange when it's close; only two show until **Show N More**. For Codex, **Use** on a line goes straight to that reset's confirmation ("Use the reset expiring Oct 23?"); nothing is spent until you press **Reset** there. Claude's resets are shown read-only, since Anthropic offers no way to redeem them from outside its own apps.
 
 Rows with a reset date tick every 30 seconds, so countdowns and pace stay live between refreshes.
 

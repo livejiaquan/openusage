@@ -56,8 +56,7 @@ struct HeaderView: View {
             HStack(spacing: 5) {
                 Text("Options")
                     .font(.system(size: 13, weight: .semibold))
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 11, weight: .semibold))
+                MenuChevron()
             }
             .padding(.horizontal, 4)
             .frame(height: Self.controlHeight)

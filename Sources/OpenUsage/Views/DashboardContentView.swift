@@ -69,8 +69,7 @@ struct DashboardContentView: View {
                     HStack(spacing: 4) {
                         Text(scopeName(container.dataStore.historyScopeID))
                             .fontWeight(.medium)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: density.planBadgePointSize - 2, weight: .semibold))
+                        MenuChevron()
                     }
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 8)
@@ -91,6 +90,7 @@ struct DashboardContentView: View {
             ActivityCard(
                 live: container.liveActivity.view(scope: container.dataStore.historyScopeID,
                                                   enabledFamilies: container.liveEnabledFamilies),
+                measuring: !container.liveActivity.hasMeasured,
                 todaySpend: todayTotals.spend,
                 todayTokens: todayTotals.tokens,
                 alert: container.dataStore.runOutAlert()

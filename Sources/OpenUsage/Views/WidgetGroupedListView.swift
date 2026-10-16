@@ -243,8 +243,7 @@ struct WidgetGroupedListView: View {
                 _ = layout.setProviderExpanded(!isExpanded, for: providerID)
             }
         } label: {
-            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                .font(.system(size: 10, weight: .semibold))
+            DisclosureChevron(expanded: isExpanded)
                 .foregroundStyle(.secondary)
                 .frame(width: 14, height: 14)
                 .frame(maxWidth: .infinity)

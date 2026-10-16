@@ -5,6 +5,8 @@ import SwiftUI
 /// provider cards. Collapsed, it is one line with a sparkline.
 struct ActivityCard: View {
     let live: LiveActivityView
+    /// The first speed reading hasn't arrived yet (a cold launch scanning the logs).
+    var measuring = false
     let todaySpend: Double?
     let todayTokens: Int?
     /// Shown only when some enabled limit is projected to run out before its reset.
@@ -40,6 +42,7 @@ struct ActivityCard: View {
             Text(headlineValue)
                 .font(.system(size: collapsed ? (density == .compact ? 15 : 17) : (density == .compact ? 20 : 24),
                               weight: .semibold))
+                .foregroundStyle(speedState == .live || headline != .speed ? .primary : .secondary)
                 .monospacedDigit()
                 .contentTransition(.numericText())
                 .lineLimit(1)
@@ -121,10 +124,8 @@ struct ActivityCard: View {
         } label: {
             // `.button` keeps the label's own order: the text, then the chevron.
             HStack(spacing: 3) {
-                Text(headline.unit).lineLimit(1)
-                if !collapsed {
-                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
-                }
+                Text(unitText).lineLimit(1)
+                MenuChevron()
             }
             .font(.system(size: density.supportingPointSize))
             .foregroundStyle(.secondary)
@@ -136,7 +137,6 @@ struct ActivityCard: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
-        .disabled(collapsed)
         .accessibilityLabel("Headline: \(headline.title)")
     }
 
@@ -144,8 +144,7 @@ struct ActivityCard: View {
         Button {
             collapsed.toggle()
         } label: {
-            Image(systemName: collapsed ? "chevron.down" : "chevron.up")
-                .font(.system(size: 10, weight: .semibold))
+            DisclosureChevron(expanded: !collapsed)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, minHeight: 24)
                 .contentShape(Rectangle())
@@ -160,9 +159,35 @@ struct ActivityCard: View {
         }
     }
 
+    private enum SpeedState { case measuring, idle, live }
+
+    /// Speed has three honest states: still reading the logs, nothing in use, or a live number.
+    private var speedState: SpeedState {
+        if let rate = live.totalRate, rate > 0 { return .live }
+        return measuring ? .measuring : .idle
+    }
+
+    /// The unit beside the number, or — while speed is idle — when things last moved.
+    private var unitText: String {
+        guard headline == .speed else { return headline.unit }
+        switch speedState {
+        case .live: return headline.unit
+        case .measuring: return "reading logs"
+        case .idle:
+            guard let last = live.lastActiveAt else { return "no activity in 30 min" }
+            let seconds = Date().timeIntervalSince(last)
+            return seconds < 60 ? "last active just now" : "last active \(Formatters.compactDuration(seconds) ?? "1m") ago"
+        }
+    }
+
     private var headlineValue: String {
         switch headline {
-        case .speed: return live.totalRate.map(LiveFormat.rate) ?? "—"
+        case .speed:
+            switch speedState {
+            case .live: return live.totalRate.map(LiveFormat.rate) ?? "—"
+            case .measuring: return "Measuring…"
+            case .idle: return "Idle"
+            }
         case .spentToday: return (Self.debugSpend ?? todaySpend).map(LiveFormat.dollars) ?? "—"
         case .tokensToday: return todayTokens.map(LiveFormat.tokens) ?? "—"
         }
