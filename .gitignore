@@ -30,3 +30,4 @@ __pycache__/
 # Local appcast / Sparkle feed output
 feed/
 appcast.xml
+.superpowers/

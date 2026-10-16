@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>Tokamak — 重置卷三種樣式</title>
+<style>
+  :root { --glass: rgba(32,30,40,.55); --card: rgba(255,255,255,.07); --cardEdge: rgba(255,255,255,.07); --hair: rgba(255,255,255,.16);
+    --text: rgba(255,255,255,.95); --sub: rgba(235,235,245,.62); --track: rgba(255,255,255,.13); --chip: rgba(255,255,255,.09);
+    --blue: #0a84ff; --orange: #ff9f0a; --claude: #e8825a; --ok: #30d158; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; color: var(--text); -webkit-font-smoothing: antialiased; font: 12px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    background: radial-gradient(60% 50% at 15% 20%, #d9567d 0%, transparent 60%), radial-gradient(50% 60% at 85% 25%, #3a7bd5 0%, transparent 60%),
+      radial-gradient(60% 60% at 60% 90%, #1fae8d 0%, transparent 60%), linear-gradient(135deg, #2b1c3d, #12233b); }
+  header.page { padding: 22px 28px 4px; max-width: 1100px; }
+  header.page h1 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
+  header.page p { margin: 0; opacity: .82; font-size: 13px; }
+  .row { display: flex; gap: 26px; padding: 18px 28px 40px; flex-wrap: wrap; align-items: flex-start; }
+  .choice { cursor: pointer; border-radius: 22px; padding: 6px; }
+  .choice.selected { box-shadow: 0 0 0 3px rgba(255,255,255,.85); }
+  .tag { margin: 2px 4px 10px; font-weight: 600; font-size: 14px; }
+  .tag span { display: block; font-weight: 400; font-size: 12px; opacity: .78; max-width: 300px; margin-top: 2px; }
+  .panel { width: 320px; border-radius: 18px; padding: 12px; background: var(--glass); backdrop-filter: blur(40px) saturate(1.8);
+    -webkit-backdrop-filter: blur(40px) saturate(1.8); border: .5px solid var(--hair); box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+  .prov { display: flex; align-items: center; gap: 6px; margin: 0 4px 4px; font-weight: 600; font-size: 14px; }
+  .prov .plan { color: var(--sub); font-weight: 400; font-size: 11px; }
+  .glyph { width: 16px; height: 16px; border-radius: 4px; background: var(--claude); }
+  .card { background: var(--card); border: .5px solid var(--cardEdge); border-radius: 12px; padding: 5px 12px; }
+  .metric { padding: 10px 0; display: grid; gap: 4px; }
+  .name { font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; align-items: baseline; }
+  .name i { font-style: normal; font-weight: 400; font-size: 12px; color: var(--sub); }
+  .bar { position: relative; height: 5px; border-radius: 99px; background: var(--track); }
+  .fill { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: var(--blue); }
+  .meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--sub); font-variant-numeric: tabular-nums; }
+  .faded { opacity: .45; }
+  .soon { color: var(--orange) !important; }
+  .use { all: unset; cursor: pointer; font-size: 11px; font-weight: 500; padding: 2px 9px; border-radius: 99px; background: var(--chip); color: var(--text); }
+  .use:hover { background: rgba(255,255,255,.16); }
+
+  /* A: list rows, same rhythm as Top Models */
+  .rl { display: grid; grid-template-columns: 18px 1fr auto auto; gap: 6px 8px; align-items: center; font-size: 12px; }
+  .num { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 10.5px; font-weight: 600; background: var(--chip); }
+  .rl .when { color: var(--sub); font-variant-numeric: tabular-nums; text-align: right; }
+
+  /* B: one summary line, details on hover */
+  .sum { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .tickets { display: flex; }
+  .tickets svg { width: 22px; height: 16px; margin-right: -8px; filter: drop-shadow(0 1px 1px rgba(0,0,0,.3)); }
+  .sum .txt { margin-left: 10px; color: var(--sub); }
+  .sum .txt b { color: var(--text); font-weight: 600; }
+  .sum .use { margin-left: auto; }
+  .pop { margin-top: 8px; border-radius: 10px; background: rgba(20,18,28,.85); border: .5px solid var(--hair); padding: 8px 10px; display: grid; gap: 6px; font-size: 11.5px; }
+  .pop div { display: flex; justify-content: space-between; color: var(--sub); }
+  .pop div b { color: var(--text); font-weight: 500; }
+  .hint { font-size: 10.5px; color: var(--sub); text-align: center; margin-top: 4px; }
+
+  /* C: 30-day expiry timeline */
+  .tl { position: relative; height: 34px; margin: 4px 2px 0; }
+  .tl .axis { position: absolute; left: 0; right: 0; top: 12px; height: 2px; border-radius: 1px; background: var(--track); }
+  .tl .nowmark { position: absolute; left: 0; top: 7px; width: 2px; height: 12px; background: var(--text); border-radius: 1px; }
+  .tl .pin { position: absolute; top: 6px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 9px; font-weight: 700; color: #1c1c1e; background: #d1d1d6; }
+  .tl .pin.soon { background: var(--orange); }
+  .tl .lab { position: absolute; top: 23px; font-size: 10px; color: var(--sub); transform: translateX(-50%); white-space: nowrap; }
+  .tl .lab.l0 { transform: none; }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Rate Limit Resets：三種樣式</h1>
+  <p>同樣的資料：2 張重置卷（一張 3 天後到期、一張 Oct 28 到期），都能直接「Use」（會跳確認，沿用 OpenUsage 現有流程）。上下保留 Opus Weekly 和 Usage，看它放在中間順不順。點你喜歡的那個。</p>
+</header>
+<div class="row">
+  <div class="choice" data-choice="a" onclick="toggleSelect(this)">
+    <div class="tag">A　清單列<span>和 Top Models Today 同一種節奏：編號、到期日、倒數、使用。資訊最清楚。</span></div>
+    <div class="panel">
+      <div class="prov"><span class="glyph"></span>Claude <span class="plan">Max 5x</span></div>
+      <div class="card">
+        <div class="metric faded"><div class="name">Opus Weekly <i>on pace</i></div><div class="bar"><div class="fill" style="width:8%"></div></div><div class="meta"><span>8% used</span><span>Resets in 2d 2h</span></div></div>
+        <div class="metric"><div class="name">Rate Limit Resets <i>2 available</i></div>
+          <div class="rl">
+            <span class="num">1</span><span>Expires Oct 19</span><span class="when soon">in 3d</span><button class="use">Use</button>
+            <span class="num">2</span><span>Expires Oct 28</span><span class="when">in 12d</span><button class="use">Use</button>
+          </div></div>
+        <div class="metric faded"><div class="name">Usage</div><div class="meta"><span>Today $372.18</span><span>Yesterday $289.40</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="choice" data-choice="b" onclick="toggleSelect(this)">
+    <div class="tag">B　一行摘要＋懸停明細<span>平常只佔一行：兩張票的小圖示、「下一張 3 天後到期」、Use。滑鼠移上去才展開明細。最省空間。</span></div>
+    <div class="panel">
+      <div class="prov"><span class="glyph"></span>Claude <span class="plan">Max 5x</span></div>
+      <div class="card">
+        <div class="metric faded"><div class="name">Opus Weekly <i>on pace</i></div><div class="bar"><div class="fill" style="width:8%"></div></div><div class="meta"><span>8% used</span><span>Resets in 2d 2h</span></div></div>
+        <div class="metric"><div class="name">Rate Limit Resets</div>
+          <div class="sum">
+            <span class="tickets">
+              <svg viewBox="0 0 22 16"><path d="M3 1h16a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V3a2 2 0 0 1 2-2z" fill="#ff9f0a"/></svg>
+              <svg viewBox="0 0 22 16"><path d="M3 1h16a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V3a2 2 0 0 1 2-2z" fill="#d1d1d6"/></svg>
+            </span>
+            <span class="txt"><b>2 ready</b> · next expires <span class="soon">in 3d</span></span>
+            <button class="use">Use</button>
+          </div>
+          <div class="pop"><div><span>#1 · Session + Weekly</span><b class="soon">Oct 19 · in 3d</b></div><div><span>#2 · Session + Weekly</span><b>Oct 28 · in 12d</b></div></div>
+          <div class="hint">↑ 滑鼠移到這一行時才出現的明細（示意）</div></div>
+        <div class="metric faded"><div class="name">Usage</div><div class="meta"><span>Today $372.18</span><span>Yesterday $289.40</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="choice" data-choice="c" onclick="toggleSelect(this)">
+    <div class="tag">C　到期時間軸<span>一條 30 天的軸，每張卷是一個圓點，越靠左越快到期。一眼看出「哪張要先用」，比較有設計感。</span></div>
+    <div class="panel">
+      <div class="prov"><span class="glyph"></span>Claude <span class="plan">Max 5x</span></div>
+      <div class="card">
+        <div class="metric faded"><div class="name">Opus Weekly <i>on pace</i></div><div class="bar"><div class="fill" style="width:8%"></div></div><div class="meta"><span>8% used</span><span>Resets in 2d 2h</span></div></div>
+        <div class="metric"><div class="name">Rate Limit Resets <i>2 available · <button class="use">Use Next</button></i></div>
+          <div class="tl"><div class="axis"></div><div class="nowmark"></div>
+            <div class="pin soon" style="left:10%">1</div><div class="pin" style="left:40%">2</div>
+            <span class="lab soon" style="left:10%">Oct 19</span><span class="lab" style="left:40%">Oct 28</span><span class="lab" style="left:92%">+30d</span>
+          </div></div>
+        <div class="metric faded"><div class="name">Usage</div><div class="meta"><span>Today $372.18</span><span>Yesterday $289.40</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  if (typeof window.toggleSelect !== "function") {
+    window.toggleSelect = el => { document.querySelectorAll(".choice").forEach(c => c.classList.remove("selected")); el.classList.add("selected"); };
+  }
+</script>
+</body>
+</html>

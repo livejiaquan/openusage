@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>Tokamak — 提醒與收合</title>
+<style>
+  :root { --glass: rgba(30,28,38,.52); --card: rgba(255,255,255,.07); --hair: rgba(255,255,255,.14); --text: rgba(255,255,255,.94);
+    --sub: rgba(235,235,245,.6); --track: rgba(255,255,255,.12); --blue: #0a84ff; --green: #30d158; --orange: #ff9f0a; --red: #ff453a;
+    --claude: #e8825a; --codex: #6ee7c8; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; font: 13px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    background: radial-gradient(60% 50% at 15% 20%, #d9567d 0%, transparent 60%), radial-gradient(50% 60% at 85% 25%, #3a7bd5 0%, transparent 60%),
+      radial-gradient(60% 60% at 60% 90%, #1fae8d 0%, transparent 60%), linear-gradient(135deg, #2b1c3d, #12233b); }
+  header.page { padding: 22px 28px 6px; max-width: 1100px; }
+  header.page h1 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
+  header.page p { margin: 0; color: rgba(255,255,255,.8); }
+  .row { display: flex; gap: 26px; padding: 18px 28px 40px; flex-wrap: wrap; align-items: flex-start; }
+  .col { display: flex; flex-direction: column; gap: 8px; }
+  .tag { font-weight: 600; font-size: 14px; margin-left: 4px; }
+  .tag span { display: block; font-weight: 400; font-size: 12px; color: rgba(255,255,255,.78); max-width: 320px; margin-top: 2px; }
+  .panel { width: 320px; border-radius: 18px; padding: 12px; background: var(--glass); backdrop-filter: blur(40px) saturate(1.8);
+    -webkit-backdrop-filter: blur(40px) saturate(1.8); border: .5px solid var(--hair); box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+  .scope { display: flex; justify-content: space-between; align-items: center; color: var(--sub); font-size: 11px; margin: 0 4px 10px; }
+  .scope b { color: var(--text); font-weight: 500; background: var(--card); padding: 3px 8px; border-radius: 7px; }
+  .card { background: var(--card); border: .5px solid rgba(255,255,255,.06); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+  .prov { display: flex; align-items: center; gap: 6px; margin: 4px 4px 6px; font-weight: 600; font-size: 14px; }
+  .prov .plan { color: var(--sub); font-weight: 400; font-size: 11px; }
+  .prov .right { margin-left: auto; font-size: 11px; font-weight: 500; color: var(--sub); display: flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
+  .glyph { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+  .metric { margin: 2px 0 10px; } .metric:last-child { margin-bottom: 2px; }
+  .metric .name { font-weight: 600; font-size: 12.5px; display: flex; justify-content: space-between; }
+  .metric .name i { font-style: normal; font-weight: 500; font-size: 11px; color: var(--sub); }
+  .bar { position: relative; height: 6px; border-radius: 3px; background: var(--track); margin: 5px 0 4px; }
+  .fill { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--blue); overflow: hidden; }
+  .fill::before { content: ""; position: absolute; top: 0; bottom: 0; width: 60%; left: -60%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.38), transparent);
+    animation: sweep var(--dur, 3s) cubic-bezier(.45,0,.25,1) infinite; }
+  @keyframes sweep { 0% { left: -60%; } 100% { left: 110%; } }
+  .pace { position: absolute; top: -2px; width: 2px; height: 10px; background: rgba(255,255,255,.7); border-radius: 1px; }
+  .meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--sub); font-variant-numeric: tabular-nums; }
+  .caret { text-align: center; color: var(--sub); font-size: 11px; cursor: pointer; padding-top: 2px; user-select: none; }
+  .footer { display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; color: var(--sub); margin: 6px 4px 0; }
+  .footer b { color: var(--text); font-weight: 600; font-size: 12px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: ping 1.8s ease-out infinite; flex: none; }
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(48,209,88,.5); } 80%,100% { box-shadow: 0 0 0 7px rgba(48,209,88,0); } }
+  .pulse-top { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .big { font-size: 22px; font-weight: 600; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
+  .unit { color: var(--sub); font-size: 11px; }
+  .chev { margin-left: auto; color: var(--sub); font-size: 11px; transition: transform .25s; }
+  svg.spark { width: 100%; height: 40px; display: block; margin: 6px 0 4px; }
+  .legend { display: grid; gap: 4px; font-size: 11px; color: var(--sub); }
+  .legend .li { display: grid; grid-template-columns: 8px 1fr auto; gap: 7px; align-items: center; }
+  .legend .sw { width: 8px; height: 8px; border-radius: 2px; }
+  .legend em { font-style: normal; color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+  /* Collapsed: one line with a mini sparkline */
+  .pulse.collapsed .body { display: none; }
+  .pulse.collapsed .chev { transform: rotate(-90deg); }
+  .pulse .minispark { display: none; width: 90px; height: 18px; }
+  .pulse.collapsed .minispark { display: block; }
+  .pulse.collapsed .big { font-size: 15px; }
+  .alert { display: flex; gap: 8px; align-items: flex-start; font-size: 11.5px; margin-top: 8px; padding: 7px 9px; border-radius: 9px;
+    background: rgba(255,159,10,.14); border: .5px solid rgba(255,159,10,.35); color: #ffd28a; }
+  .alert b { color: #ffe2b0; }
+  .on-demand { display: none; } .expanded .on-demand { display: block; }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>提醒要不要顯示、面板要不要能收合</h1>
+  <p>左邊兩個比較「Tightest 那句話」：平常安靜、快用完才出現一句結論。右邊示範收合：點脈搏卡標題可以收成一行；每家下面的小箭頭沿用 OpenUsage 的 On Demand（點一下展開）。</p>
+</header>
+<div class="row">
+  <div class="col">
+    <div class="tag">① 平常（不會用完）<span>沒有提醒，只有額度條上淡淡的 on pace。畫面最乾淨。</span></div>
+    <div class="panel">
+      <div class="scope">Usage From <b>All Devices ⌄</b></div>
+      <div class="card pulse">
+        <div class="pulse-top"><span class="dot"></span><span class="big">640K</span><span class="unit">tokens / min</span><span class="chev">⌄</span></div>
+        <div class="body"><svg class="spark s-calm" viewBox="0 0 296 40" preserveAspectRatio="none"></svg>
+          <div class="legend"><div class="li"><span class="sw" style="background:var(--claude)"></span><span>Claude</span><em>420K/min</em></div>
+            <div class="li"><span class="sw" style="background:var(--codex)"></span><span>Codex</span><em>220K/min</em></div></div></div>
+      </div>
+      <div class="prov"><span class="glyph" style="background:var(--claude)"></span>Claude <span class="plan">Max 5x</span><span class="right"><span class="dot"></span>420K/min</span></div>
+      <div class="card"><div class="metric"><div class="name">Session <i>on pace</i></div><div class="bar"><div class="fill" style="width:38%;--dur:5s"></div><div class="pace" style="left:52%"></div></div><div class="meta"><span>38% used</span><span>Resets in 1h 31m</span></div></div></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="tag">② 會在重置前用完<span>才出現一行橘色提醒，直接說結論：「比重置早 22 分鐘用完」，不用自己算。</span></div>
+    <div class="panel">
+      <div class="scope">Usage From <b>All Devices ⌄</b></div>
+      <div class="card pulse">
+        <div class="pulse-top"><span class="dot"></span><span class="big">1.30M</span><span class="unit">tokens / min</span><span class="chev">⌄</span></div>
+        <div class="body"><svg class="spark s-hot" viewBox="0 0 296 40" preserveAspectRatio="none"></svg>
+          <div class="legend"><div class="li"><span class="sw" style="background:var(--claude)"></span><span>Claude</span><em>982K/min</em></div>
+            <div class="li"><span class="sw" style="background:var(--codex)"></span><span>Codex</span><em>321K/min</em></div></div>
+          <div class="alert">⚠︎<span><b>Claude Session</b> runs out ~22m before it resets at this pace.</span></div></div>
+      </div>
+      <div class="prov"><span class="glyph" style="background:var(--claude)"></span>Claude <span class="plan">Max 5x</span><span class="right"><span class="dot"></span>982K/min</span></div>
+      <div class="card"><div class="metric"><div class="name">Session <i style="color:var(--orange)">empty in ~1h 9m</i></div><div class="bar"><div class="fill" style="width:66%;--dur:2.4s"></div><div class="pace" style="left:52%"></div></div><div class="meta"><span>66% used</span><span>Resets in 1h 31m</span></div></div></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="tag">③ 收合示範（可以點）<span>點「1.30M tokens / min」那列收成一行（含迷你曲線）；點 Claude 卡片底下的 ⌄ 展開 On Demand 的項目。兩個狀態 App 都會記住。</span></div>
+    <div class="panel">
+      <div class="scope">Usage From <b>All Devices ⌄</b></div>
+      <div class="card pulse collapsed" id="p3">
+        <div class="pulse-top" onclick="document.getElementById('p3').classList.toggle('collapsed')"><span class="dot"></span><span class="big">1.30M</span><span class="unit">/ min</span>
+          <svg class="minispark s-hot" viewBox="0 0 296 40" preserveAspectRatio="none"></svg><span class="chev">⌄</span></div>
+        <div class="body"><svg class="spark s-hot" viewBox="0 0 296 40" preserveAspectRatio="none"></svg>
+          <div class="legend"><div class="li"><span class="sw" style="background:var(--claude)"></span><span>Claude</span><em>982K/min</em></div>
+            <div class="li"><span class="sw" style="background:var(--codex)"></span><span>Codex</span><em>321K/min</em></div></div></div>
+      </div>
+      <div class="prov"><span class="glyph" style="background:var(--claude)"></span>Claude <span class="plan">Max 5x</span><span class="right"><span class="dot"></span>982K/min</span></div>
+      <div class="card" id="c3">
+        <div class="metric"><div class="name">Session <i style="color:var(--orange)">empty in ~1h 9m</i></div><div class="bar"><div class="fill" style="width:66%;--dur:2.4s"></div><div class="pace" style="left:52%"></div></div><div class="meta"><span>66% used</span><span>Resets in 1h 31m</span></div></div>
+        <div class="metric"><div class="name">Weekly <i>on pace</i></div><div class="bar"><div class="fill" style="width:20%;--dur:6s"></div><div class="pace" style="left:38%"></div></div><div class="meta"><span>20% used</span><span>Resets in 2d 2h</span></div></div>
+        <div class="on-demand">
+          <div class="metric"><div class="name">Opus Weekly</div><div class="bar"><div class="fill" style="width:8%;--dur:7s"></div></div><div class="meta"><span>8% used</span><span>Resets in 2d 2h</span></div></div>
+          <div class="metric"><div class="name">Today</div><div class="meta" style="font-size:12px;color:var(--text)"><span>$372.18</span><span style="color:var(--sub)">1.8B tokens</span></div></div>
+        </div>
+        <div class="caret" onclick="document.getElementById('c3').classList.toggle('expanded'); this.textContent = this.textContent === '⌄' ? '⌃' : '⌄'">⌄</div>
+      </div>
+      <div class="prov"><span class="glyph" style="background:var(--codex)"></span>Codex <span class="plan">Pro 100</span><span class="right"><span class="dot"></span>321K/min</span></div>
+      <div class="card"><div class="metric"><div class="name">Weekly <i>under pace</i></div><div class="bar"><div class="fill" style="width:12%;--dur:4s"></div><div class="pace" style="left:9%"></div></div><div class="meta"><span>12% used</span><span>Resets in 6d 13h</span></div></div></div>
+      <div class="footer"><span>Tokamak 0.7.0<br>Next update in 4m</span><b>Options ⌄</b></div>
+    </div>
+  </div>
+</div>
+<script>
+  function draw(sel, base, amp, seed) {
+    const n = 60, w = 296, h = 40, step = w / (n - 1), a = [], b = [];
+    for (let i = 0; i < n; i++) { a.push(base + amp * Math.sin((i + seed) / 6) + Math.random() * amp * .4); b.push(base * .35 + amp * .3 * Math.cos((i + seed) / 5)); }
+    const tot = a.map((v, i) => v + b[i]), max = Math.max(...tot) * 1.12;
+    const pt = (v, i) => `${(i * step).toFixed(1)},${(h - v / max * h).toFixed(1)}`;
+    const line = arr => arr.map(pt).join(" ");
+    const area = (top, low) => `${line(top)} ${low.map((v, i) => [v, i]).reverse().map(([v, i]) => pt(v, i)).join(" ")}`;
+    const zero = a.map(() => 0);
+    document.querySelectorAll(sel).forEach(svg => svg.innerHTML =
+      `<polygon points="${area(b, zero)}" fill="#6ee7c8" fill-opacity=".35"/><polygon points="${area(tot, b)}" fill="#e8825a" fill-opacity=".35"/>
+       <polyline points="${line(tot)}" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.4"/>`);
+  }
+  let t = 0;
+  function tick() { t++; draw(".s-calm", .45, .08, t); draw(".s-hot", .95, .3, t); }
+  tick(); setInterval(tick, 1200);
+</script>
+</body>
+</html>

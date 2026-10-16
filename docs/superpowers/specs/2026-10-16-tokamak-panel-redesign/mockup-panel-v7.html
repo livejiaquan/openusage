@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>Tokamak — 細節 v7</title>
+<style>
+  /* Type scale and spacing mirror OpenUsage's DensitySetting (Default / Compact). */
+  :root {
+    --label: 13px; --support: 12px; --header: 14px; --icon: 16px; --badge: 11px; --meter: 5px;
+    --barPad: 10px; --rowGap: 4px; --section: 14px; --headerGap: 4px; --gutter: 5px; --rate: 24px;
+  }
+  body.compact { --label: 12px; --support: 11px; --header: 13px; --icon: 14px; --badge: 10px; --meter: 4px;
+    --barPad: 5px; --rowGap: 3px; --section: 8px; --headerGap: 2px; --gutter: 3px; --rate: 20px; }
+  body.dark {
+    --glass: rgba(32,30,40,.55); --card: rgba(255,255,255,.07); --cardEdge: rgba(255,255,255,.07); --hair: rgba(255,255,255,.16);
+    --text: rgba(255,255,255,.95); --sub: rgba(235,235,245,.62); --track: rgba(255,255,255,.13); --chip: rgba(255,255,255,.09);
+    --sweep: rgba(255,255,255,.16); --menuBg: rgba(40,38,48,.92); --alertBg: rgba(255,159,10,.14); --alertEdge: rgba(255,159,10,.35); --alertText: #ffd28a; --shadow: rgba(0,0,0,.45);
+  }
+  body.light {
+    --glass: rgba(246,245,250,.62); --card: rgba(255,255,255,.55); --cardEdge: rgba(0,0,0,.06); --hair: rgba(0,0,0,.1);
+    --text: rgba(0,0,0,.88); --sub: rgba(60,60,67,.62); --track: rgba(0,0,0,.09); --chip: rgba(0,0,0,.06);
+    --sweep: rgba(255,255,255,.5); --menuBg: rgba(250,250,252,.94); --alertBg: rgba(255,149,0,.12); --alertEdge: rgba(255,149,0,.35); --alertText: #9a5800; --shadow: rgba(0,0,0,.18);
+  }
+  :root { --blue: #0a84ff; --green: #30d158; --orange: #ff9f0a; --red: #ff453a; --claude: #e8825a; --codex: #3fcfa8; --wsl: #a78bfa; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; color: var(--text); -webkit-font-smoothing: antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; font-size: var(--support);
+    background: radial-gradient(60% 50% at 15% 20%, #d9567d 0%, transparent 60%), radial-gradient(50% 60% at 85% 25%, #3a7bd5 0%, transparent 60%),
+      radial-gradient(60% 60% at 60% 90%, #1fae8d 0%, transparent 60%), linear-gradient(135deg, #2b1c3d, #12233b); }
+  body.light { background: radial-gradient(60% 50% at 15% 20%, #f7a7c0 0%, transparent 60%), radial-gradient(50% 60% at 85% 25%, #9cc3f5 0%, transparent 60%),
+      radial-gradient(60% 60% at 60% 90%, #9fe3cf 0%, transparent 60%), linear-gradient(135deg, #f4e9f3, #e3eefb); }
+  header.page { padding: 22px 28px 4px; max-width: 1100px; color: inherit; }
+  header.page h1 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
+  header.page p { margin: 0 0 10px; opacity: .8; font-size: 13px; }
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+  .controls .seg { display: flex; background: var(--chip); border-radius: 8px; padding: 2px; backdrop-filter: blur(20px); }
+  .controls button { all: unset; cursor: pointer; font-size: 12px; padding: 4px 10px; border-radius: 6px; color: var(--sub); }
+  .controls button.on { background: var(--card); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+  .row { display: flex; gap: 30px; padding: 18px 28px 40px; flex-wrap: wrap; align-items: flex-start; }
+
+  .panel { width: 320px; border-radius: 18px; padding: 12px 12px 10px; background: var(--glass);
+    backdrop-filter: blur(40px) saturate(1.8); -webkit-backdrop-filter: blur(40px) saturate(1.8);
+    border: .5px solid var(--hair); box-shadow: 0 24px 60px var(--shadow); }
+  .scope { display: flex; justify-content: space-between; align-items: center; color: var(--sub); font-size: var(--support); margin: 0 4px 10px; }
+  .scope b { color: var(--text); font-weight: 500; background: var(--chip); padding: 3px 8px; border-radius: 7px; font-size: var(--support); }
+  .card { background: var(--card); border: .5px solid var(--cardEdge); border-radius: 12px; padding: var(--gutter) 12px; }
+  .section { margin-bottom: var(--section); }
+  .prov { display: flex; align-items: center; gap: 6px; margin: 0 4px var(--headerGap); font-weight: 600; font-size: var(--header); }
+  .prov .plan { color: var(--sub); font-weight: 400; font-size: var(--badge); }
+  .prov .speed { margin-left: auto; font-size: var(--support); font-weight: 500; color: var(--sub); display: flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
+  .glyph { width: var(--icon); height: var(--icon); border-radius: 4px; display: inline-block; flex: none; }
+  .metric { padding: var(--barPad) 0; display: grid; gap: var(--rowGap); }
+  .metric + .metric { border-top: .5px solid transparent; }
+  .metric .name { font-weight: 600; font-size: var(--label); display: flex; justify-content: space-between; align-items: baseline; }
+  .metric .name i { font-style: normal; font-weight: 400; font-size: var(--support); color: var(--sub); }
+  .warn { color: var(--orange) !important; }
+  .bar { position: relative; height: var(--meter); border-radius: 99px; background: var(--track); }
+  .fill { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: var(--blue); overflow: hidden; }
+  .fill.live::before { content: ""; position: absolute; top: 0; bottom: 0; width: 45%; left: -45%;
+    background: linear-gradient(90deg, transparent, var(--sweep), transparent); animation: sweep var(--dur, 12s) ease-in-out infinite; }
+  @keyframes sweep { 0% { left: -45%; } 62% { left: 105%; } 100% { left: 105%; } }
+  @media (prefers-reduced-motion: reduce) { .fill.live::before, .glow, .dot { animation: none !important; } }
+  .glow { position: absolute; top: 50%; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, rgba(120,190,255,.8), rgba(10,132,255,0) 65%); animation: breathe 4.5s ease-in-out infinite; }
+  @keyframes breathe { 0%,100% { opacity: .15; transform: translateY(-50%) scale(.9); } 50% { opacity: .45; transform: translateY(-50%) scale(1.05); } }
+  .pace { position: absolute; top: -2.5px; bottom: -2.5px; width: 2px; background: var(--text); opacity: .55; border-radius: 1px; }
+  .meta { display: flex; justify-content: space-between; font-size: var(--support); color: var(--sub); font-variant-numeric: tabular-nums; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: ping 3s ease-out infinite; flex: none; }
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(48,209,88,.35); } 70%,100% { box-shadow: 0 0 0 5px rgba(48,209,88,0); } }
+
+  /* Caret: OpenUsage's centered chevron that swaps down <-> up (no rotation), crossfaded. */
+  .caret { display: flex; justify-content: center; align-items: center; min-height: 24px; cursor: pointer; color: var(--sub); border-radius: 6px; }
+  .caret:hover { background: var(--chip); }
+  .caret svg { width: 12px; height: 7px; transition: opacity .15s; }
+  .caret:hover { color: var(--text); }
+  /* Smooth expand/collapse: animate grid rows 0fr <-> 1fr. */
+  .expander { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .32s cubic-bezier(.3,.7,.2,1), opacity .25s; }
+  .expander > div { overflow: hidden; min-height: 0; }
+  .collapsed .expander { grid-template-rows: 0fr; opacity: 0; }
+
+  .pulse { padding-top: 10px; padding-bottom: 2px; }
+  .pulse-top { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+  .rate { font-size: var(--rate); font-weight: 600; letter-spacing: -.4px; font-variant-numeric: tabular-nums; transition: font-size .3s; }
+  .collapsed .rate { font-size: 17px; letter-spacing: -.2px; }
+  body.compact .collapsed .rate { font-size: 15px; }
+  .unit { color: var(--sub); font-size: var(--support); white-space: nowrap; }
+  .headline { display: flex; align-items: baseline; gap: 7px; cursor: pointer; border-radius: 6px; }
+  .headline:hover .rate { opacity: .85; }
+  .menuwrap { position: relative; align-self: center; }
+  .unitbtn { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 0 7px; margin-left: -3px;
+    border-radius: 6px; color: var(--sub); font-size: var(--support); white-space: nowrap; }
+  .unitbtn svg { width: 9px; height: 6px; }
+  .unitbtn:hover, .unitbtn.open { background: var(--chip); color: var(--text); }
+  .collapsed .unitbtn { pointer-events: none; } .collapsed .unitbtn svg { display: none; }
+  .menu { position: absolute; top: calc(100% + 4px); left: -3px; z-index: 5; min-width: 170px; padding: 5px; border-radius: 10px; display: none;
+    background: var(--menuBg); backdrop-filter: blur(30px) saturate(1.6); -webkit-backdrop-filter: blur(30px) saturate(1.6);
+    border: .5px solid var(--hair); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  .menu.open { display: grid; }
+  .menu button { all: unset; cursor: pointer; padding: 5px 8px 5px 24px; border-radius: 6px; font-size: 13px; color: var(--text); position: relative; }
+  .menu button small { display: block; font-size: 11px; color: var(--sub); }
+  .menu button:hover { background: var(--blue); color: #fff; } .menu button:hover small { color: rgba(255,255,255,.8); }
+  .menu button.on::before { content: "✓"; position: absolute; left: 8px; top: 5px; font-size: 12px; }
+  /* On Demand extras */
+  .stat3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat3 div { display: grid; gap: 1px; }
+  .stat3 small { color: var(--sub); font-size: var(--badge); }
+  .stat3 b { font-size: var(--label); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat3 span { color: var(--sub); font-size: var(--badge); font-variant-numeric: tabular-nums; }
+  .bars14 { display: flex; align-items: flex-end; gap: 3px; height: 26px; }
+  .bars14 i { flex: 1; border-radius: 2px 2px 0 0; background: var(--track); }
+  .bars14 i.today { background: var(--claude); }
+  .model { display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; font-size: var(--support); }
+  .model .mb { grid-column: 1 / 3; height: 3px; border-radius: 2px; background: var(--track); position: relative; }
+  .model .mb i { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--claude); opacity: .8; }
+  .model em { font-style: normal; color: var(--sub); font-variant-numeric: tabular-nums; }
+  .rl { display: grid; grid-template-columns: 18px 1fr auto auto; gap: 4px 8px; align-items: center; font-size: var(--support); }
+  .num { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 10.5px; font-weight: 600; background: var(--chip); }
+  .rl .when { color: var(--sub); font-variant-numeric: tabular-nums; text-align: right; }
+  .rl .when.soon { color: var(--orange); }
+  .use { all: unset; cursor: pointer; font-size: var(--badge); font-weight: 500; min-height: 24px; padding: 0 10px; display: inline-flex; align-items: center;
+    border-radius: 99px; background: var(--chip); color: var(--text); }
+  .use:hover { background: var(--blue); color: #fff; }
+  .more { grid-column: 1 / 5; all: unset; cursor: pointer; grid-column: 1 / 5; min-height: 24px; display: flex; align-items: center; gap: 5px;
+    color: var(--sub); font-size: var(--support); border-radius: 6px; padding-left: 26px; }
+  .more:hover { color: var(--text); background: var(--chip); }
+  .chip { font-size: var(--badge); padding: 2px 7px; border-radius: 99px; background: var(--chip); color: var(--text); }
+  .chip.soon { background: var(--alertBg); color: var(--alertText); }
+  .mini { margin-left: auto; width: 112px; height: 22px; opacity: 0; transition: opacity .3s; }
+  .collapsed .mini { opacity: 1; }
+  .legend-head { display: flex; justify-content: space-between; align-items: center; font-size: var(--badge); color: var(--sub); margin-bottom: 6px; }
+  .seg2 { display: flex; background: var(--chip); border-radius: 7px; padding: 2px; transition: opacity .2s; }
+  .seg2 button { all: unset; cursor: pointer; font-size: var(--badge); padding: 0 9px; min-height: 24px; display: inline-flex; align-items: center; border-radius: 5px; color: var(--sub); }
+  .seg2 button.on { background: var(--card); color: var(--text); }
+  svg.spark { width: 100%; height: 44px; display: block; margin: 8px 0 6px; }
+  .legend { display: grid; gap: 5px; font-size: var(--support); color: var(--sub); }
+  .legend .li { display: grid; grid-template-columns: 8px 1fr auto; gap: 8px; align-items: center; }
+  .legend .sw { width: 8px; height: 8px; border-radius: 2px; }
+  .legend em { font-style: normal; color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .legend small { color: var(--sub); margin-left: 5px; }
+  .alert { display: flex; gap: 7px; align-items: flex-start; font-size: var(--support); margin-top: 10px; padding: 7px 9px; border-radius: 9px;
+    background: var(--alertBg); border: .5px solid var(--alertEdge); color: var(--alertText); line-height: 1.35; }
+  .alert b { font-weight: 600; }
+  .footer { display: flex; justify-content: space-between; align-items: center; font-size: var(--badge); color: var(--sub); margin: 2px 4px 0; line-height: 1.3; }
+  .footer b { color: var(--text); font-weight: 600; font-size: var(--label); }
+  .spec { width: 330px; font-size: 12.5px; line-height: 1.5; }
+  .spec h3 { margin: 0 0 6px; font-size: 14px; }
+  .spec table { border-collapse: collapse; width: 100%; margin-bottom: 14px; }
+  .spec td { padding: 4px 6px; border-bottom: .5px solid var(--hair); vertical-align: top; }
+  .spec td:first-child { color: var(--sub); white-space: nowrap; }
+  .spec .box { background: var(--glass); backdrop-filter: blur(30px); border: .5px solid var(--hair); border-radius: 14px; padding: 12px 14px; }
+</style>
+</head>
+<body class="dark">
+<header class="page">
+  <h1>細節 v7：大數字改成選單、重置卷清單（多張時自動收起）</h1>
+  <p>點「tokens/min ⌄」可選大數字要顯示什麼；Claude 有 5 張重置卷，預設只列最快到期的 2 張，其餘點「Show 3 More」展開。所有可點的地方點擊範圍都至少 24pt 高。</p>
+  <div class="controls">
+    <div class="seg"><button class="on" data-density="regular">Default</button><button data-density="compact">Compact</button></div>
+    <div class="seg"><button class="on" data-theme="dark">Dark</button><button data-theme="light">Light</button></div>
+  </div>
+</header>
+<div class="row">
+  <div class="panel">
+    <div class="scope">Usage From <b>All Devices ⌄</b></div>
+
+    <div class="section card pulse" id="pulse">
+      <div class="pulse-top"><span class="dot"></span><span class="headline"><span class="rate" id="rate">1.30M</span><span class="menuwrap"><button class="unitbtn" id="unitbtn" aria-haspopup="menu"><span id="unit">tokens/min</span><svg viewBox="0 0 10 6"><path d="M1 1 L5 5 L9 1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <div class="menu" id="menu" role="menu"><button data-m="0" role="menuitemradio">Speed<small>tokens per minute</small></button><button data-m="1" role="menuitemradio">Spent Today<small>estimated cost</small></button><button data-m="2" role="menuitemradio">Tokens Today<small>all models</small></button></div></span></span>
+        <svg class="mini" id="mini" viewBox="0 0 296 40" preserveAspectRatio="none"></svg></div>
+      <div class="expander"><div>
+        <svg class="spark" id="spark" viewBox="0 0 296 44" preserveAspectRatio="none"></svg>
+        <div class="legend-head"><span>Last 30 min</span><div class="seg2"><button class="on" data-mode="prov">Providers</button><button data-mode="dev">Devices</button></div></div>
+        <div class="legend" id="legend"></div>
+        <div class="alert">⚠︎<span><b>Claude Session</b> runs out about <b id="early">22m</b> before it resets at this pace.</span></div>
+      </div></div>
+      <div class="caret" data-for="pulse"></div>
+    </div>
+
+    <div class="section">
+      <div class="prov"><span class="glyph" style="background:var(--claude)"></span>Claude <span class="plan">Max 5x</span><span class="speed"><span class="dot"></span><span id="s-cl">982K/min</span></span></div>
+      <div class="card" id="claude">
+        <div class="metric"><div class="name">Session <i class="warn" id="eta">empty in ~1h 9m</i></div>
+          <div class="bar"><div class="fill live" id="f1" style="width:66%"></div><div class="pace" style="left:52%"></div><div class="glow" style="left:66%"></div></div>
+          <div class="meta"><span>66% used</span><span>Resets in 1h 31m</span></div></div>
+        <div class="metric"><div class="name">Weekly <i>on pace</i></div>
+          <div class="bar"><div class="fill" style="width:20%;--dur:6s"></div><div class="pace" style="left:38%"></div></div>
+          <div class="meta"><span>20% used</span><span>Resets in 2d 2h</span></div></div>
+        <div class="expander"><div>
+          <div class="metric"><div class="name">Opus Weekly <i>on pace</i></div>
+            <div class="bar"><div class="fill" style="width:8%"></div><div class="pace" style="left:38%"></div></div>
+            <div class="meta"><span>8% used</span><span>Resets in 2d 2h</span></div></div>
+          <div class="metric"><div class="name">Rate Limit Resets <i>5 available</i></div>
+            <div class="rl" id="rl"></div></div>
+          <div class="metric"><div class="name">Usage</div>
+            <div class="stat3"><div><small>Today</small><b>$372.18</b><span>1.8B tokens</span></div>
+              <div><small>Yesterday</small><b>$289.40</b><span>1.4B tokens</span></div>
+              <div><small>30 Days</small><b>$4,812</b><span>29.1B tokens</span></div></div></div>
+          <div class="metric"><div class="name">Last 14 Days <i>avg $318/day</i></div>
+            <div class="bars14" id="bars14"></div></div>
+          <div class="metric"><div class="name">Top Models Today</div>
+            <div class="model"><span>claude-opus-5</span><em>64% · $238</em><div class="mb"><i style="width:64%"></i></div>
+              <span>claude-sonnet-5</span><em>28% · $104</em><div class="mb"><i style="width:28%"></i></div>
+              <span>claude-haiku-4-5</span><em>8% · $30</em><div class="mb"><i style="width:8%"></i></div></div></div>
+        </div></div>
+        <div class="caret" data-for="claude"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="prov"><span class="glyph" style="background:var(--codex)"></span>Codex <span class="plan">Pro 100</span><span class="speed"><span class="dot"></span><span id="s-cx">321K/min</span></span></div>
+      <div class="card collapsed" id="codex">
+        <div class="metric"><div class="name">Weekly <i>under pace</i></div>
+          <div class="bar"><div class="fill live" id="f2" style="width:12%"></div><div class="pace" style="left:9%"></div></div>
+          <div class="meta"><span>12% used</span><span>Resets in 6d 13h</span></div></div>
+        <div class="expander"><div>
+          <div class="metric"><div class="name">Credits <i>327.19 left</i></div>
+            <div class="bar"><div class="fill" style="width:33%;background:var(--codex)"></div></div></div>
+          <div class="metric"><div class="name">Rate Limit Resets <i>1 available</i></div>
+            <div class="rl"><span class="num">1</span><span>Expires Oct 31</span><span class="when">in 15d</span><button class="use">Use</button></div></div>
+          <div class="metric"><div class="name">Usage</div>
+            <div class="stat3"><div><small>Today</small><b>$86.15</b><span>412M tokens</span></div>
+              <div><small>Yesterday</small><b>$21.96</b><span>98M tokens</span></div>
+              <div><small>30 Days</small><b>$601.79</b><span>757M tokens</span></div></div></div>
+        </div></div>
+        <div class="caret" data-for="codex"></div>
+      </div>
+    </div>
+
+    <div class="footer"><span>Tokamak 0.7.0<br>Next update in 4m</span><b>Options ⌄</b></div>
+  </div>
+
+  <div class="spec"><div class="box">
+    <h3>這版改了什麼</h3>
+    <table>
+      <tr><td>大數字</td><td>「tokens/min ⌄」變成選單按鈕，和頂部「All Devices ⌄」同一種樣式；選單有勾選與說明。收合成一行時不顯示箭頭，避免誤觸</td></tr>
+      <tr><td>重置卷</td><td>A 清單樣式。依到期排序，最多顯示 2 張，其餘收成「Show N More」；3 天內到期的倒數標橘</td></tr>
+      <tr><td>點擊範圍</td><td>箭頭、切換、Use、選單都至少 24pt 高，滑過有底色回饋</td></tr>
+    </table>
+    <h3>我自己檢查過的</h3>
+    <table>
+      <tr><td>✓</td><td>選單：開、選、點外面關、選完數字更新</td></tr>
+      <tr><td>✓</td><td>重置卷：展開／收起、文字不重疊</td></tr>
+      <tr><td>✓</td><td>脈搏卡收合、Codex 展開</td></tr>
+      <tr><td>✓</td><td>Dark／Light、Default／Compact 四種組合</td></tr>
+    </table>
+</div></div>
+</div>
+<script>
+  const chevron = up => `<svg viewBox="0 0 12 7"><path d="${up ? "M1 6 L6 1 L11 6" : "M1 1 L6 6 L11 1"}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  function syncCarets() {
+    document.querySelectorAll(".caret").forEach(c => {
+      const box = document.getElementById(c.dataset.for);
+      c.innerHTML = chevron(!box.classList.contains("collapsed"));
+    });
+  }
+  document.querySelectorAll(".caret").forEach(c => c.onclick = () => {
+    const box = document.getElementById(c.dataset.for);
+    c.firstChild && (c.firstChild.style.opacity = 0);
+    box.classList.toggle("collapsed");
+    setTimeout(syncCarets, 120);
+  });
+  syncCarets();
+  document.querySelectorAll("[data-density]").forEach(b => b.onclick = () => {
+    document.body.classList.toggle("compact", b.dataset.density === "compact");
+    document.querySelectorAll("[data-density]").forEach(x => x.classList.toggle("on", x === b));
+  });
+  document.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => {
+    document.body.classList.remove("dark", "light"); document.body.classList.add(b.dataset.theme);
+    document.querySelectorAll("[data-theme]").forEach(x => x.classList.toggle("on", x === b));
+  });
+  const fmt = v => (v >= 1 ? v.toFixed(2) + "M" : Math.round(v * 1000) + "K");
+  let cl = .98, cx = .32, mode = "prov";
+  const H = { cl: [], cx: [] };
+  for (let i = 0; i < 60; i++) { H.cl.push(.75 + .25 * Math.sin(i / 6) + Math.random() * .12); H.cx.push(.25 + .08 * Math.cos(i / 5) + Math.random() * .06); }
+  function draw(id, h) {
+    const n = H.cl.length, w = 296, step = w / (n - 1), tot = H.cl.map((v, i) => v + H.cx[i]), max = Math.max(...tot) * 1.12;
+    const pt = (v, i) => `${(i * step).toFixed(1)},${(h - v / max * h).toFixed(1)}`, line = a => a.map(pt).join(" ");
+    const area = (top, low) => `${line(top)} ${low.map((v, i) => [v, i]).reverse().map(([v, i]) => pt(v, i)).join(" ")}`;
+    const z = H.cl.map(() => 0), c2 = mode === "prov" ? "#3fcfa8" : "#a78bfa";
+    const stroke = document.body.classList.contains("light") ? "rgba(0,0,0,.55)" : "rgba(255,255,255,.85)";
+    document.getElementById(id).innerHTML = `<polygon points="${area(H.cx, z)}" fill="${c2}" fill-opacity=".38"/><polygon points="${area(tot, H.cx)}" fill="#e8825a" fill-opacity=".38"/>
+      <polyline points="${line(tot)}" fill="none" stroke="${stroke}" stroke-width="1.4" stroke-linejoin="round"/>`;
+  }
+  function legend() {
+    const rows = mode === "prov"
+      ? [["Claude", "var(--claude)", cl, ""], ["Codex", "var(--codex)", cx, ""]]
+      : [["This Mac", "var(--claude)", cl * .7 + cx * .4, "live"], ["Lab WSL", "var(--wsl)", cl * .3 + cx * .6, "2m ago"], ["Lab Windows", "var(--sub)", 0, "idle"]];
+    document.getElementById("legend").innerHTML = rows.map(([n, c, v, s]) =>
+      `<div class="li"><span class="sw" style="background:${c}"></span><span>${n}${s ? `<small>${s}</small>` : ""}</span><em>${v > 0 ? fmt(v) + "/min" : "—"}</em></div>`).join("");
+  }
+  document.querySelectorAll(".seg2 button").forEach(b => b.onclick = e => { e.stopPropagation(); mode = b.dataset.mode;
+    document.querySelectorAll(".seg2 button").forEach(x => x.classList.toggle("on", x === b)); legend(); draw("spark", 44); });
+  function tick() {
+    cl = Math.max(.35, Math.min(1.5, cl + (Math.random() - .5) * .1)); cx = Math.max(.08, Math.min(.7, cx + (Math.random() - .5) * .05));
+    H.cl.push(cl); H.cl.shift(); H.cx.push(cx); H.cx.shift();
+    const total = cl + cx, mins = Math.round(69 * 1.3 / total);
+    const modeView = [[fmt(total), "tokens/min"], ["$458.33", "spent today"], ["2.2B", "tokens today"]][headMode];
+    document.getElementById("rate").textContent = modeView[0]; document.getElementById("unit").textContent = modeView[1];
+    document.getElementById("eta").textContent = `empty in ~${Math.floor(mins / 60)}h ${mins % 60}m`;
+    document.getElementById("early").textContent = `${Math.max(1, 91 - mins)}m`;
+    document.getElementById("s-cl").textContent = fmt(cl) + "/min"; document.getElementById("s-cx").textContent = fmt(cx) + "/min";
+    document.getElementById("f1").style.setProperty("--dur", Math.max(8, Math.min(16, 18 - cl * 7)).toFixed(1) + "s");
+    document.getElementById("f2").style.setProperty("--dur", Math.max(8, Math.min(16, 18 - cx * 14)).toFixed(1) + "s");
+    draw("spark", 44); draw("mini", 40); legend();
+  }
+  let headMode = 0;
+  const menu = document.getElementById("menu"), unitbtn = document.getElementById("unitbtn");
+  const syncMenu = () => menu.querySelectorAll("button").forEach(b => b.classList.toggle("on", +b.dataset.m === headMode));
+  unitbtn.onclick = e => { e.stopPropagation(); const open = !menu.classList.contains("open"); menu.classList.toggle("open", open); unitbtn.classList.toggle("open", open); };
+  menu.querySelectorAll("button").forEach(b => b.onclick = e => { e.stopPropagation(); headMode = +b.dataset.m; syncMenu();
+    menu.classList.remove("open"); unitbtn.classList.remove("open"); tick(); });
+  document.addEventListener("click", () => { menu.classList.remove("open"); unitbtn.classList.remove("open"); });
+  syncMenu();
+  const resets = [["Oct 19", "in 3d", true], ["Oct 24", "in 8d"], ["Oct 28", "in 12d"], ["Nov 2", "in 17d"], ["Nov 9", "in 24d"]];
+  let showAll = false;
+  function renderResets() {
+    const shown = showAll ? resets : resets.slice(0, 2), rest = resets.length - 2;
+    document.getElementById("rl").innerHTML = shown.map(([d, w, soon], i) =>
+      `<span class="num">${i + 1}</span><span>Expires ${d}</span><span class="when${soon ? " soon" : ""}">${w}</span><button class="use">Use</button>`).join("")
+      + (rest > 0 ? `<button class="more" id="more">${showAll ? "Show Less" : `Show ${rest} More`}<svg width="9" height="6" viewBox="0 0 10 6"><path d="${showAll ? "M1 5 L5 1 L9 5" : "M1 1 L5 5 L9 1"}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>` : "");
+    const more = document.getElementById("more"); if (more) more.onclick = () => { showAll = !showAll; renderResets(); };
+  }
+  renderResets();
+  document.getElementById("bars14").innerHTML = [210,260,180,330,290,410,350,240,300,380,270,360,289,372]
+    .map((v, i, a) => `<i class="${i === a.length - 1 ? "today" : ""}" style="height:${Math.round(v / 410 * 100)}%"></i>`).join("");
+  tick(); setInterval(tick, 1600);
+</script>
+</body>
+</html>
