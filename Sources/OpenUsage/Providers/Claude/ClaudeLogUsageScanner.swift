@@ -278,6 +278,17 @@ actor ClaudeLogUsageScanner {
         return dirs.sorted { $0.path < $1.path }
     }
 
+    /// Usage files modified since `modifiedSince`, for the live Activity tail: the same roots `scan` reads,
+    /// without the per-account ownership filter (live speed describes this Mac, not one account).
+    func liveCandidateFiles(modifiedSince: Date) -> [URL] {
+        Self.usageFiles(
+            under: claudeRoots(),
+            additionalProjects: additionalProjectDirectories.map { URL(fileURLWithPath: expandHome($0)) }
+        )
+        .filter { $0.mtime >= modifiedSince }
+        .map { URL(fileURLWithPath: $0.path) }
+    }
+
     /// Every `*.jsonl` under each root's `projects/`, path-sorted so the dedup pass (keep-first wins)
     /// is deterministic — the same order ccusage scans in.
     private static func usageFiles(

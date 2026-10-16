@@ -143,6 +143,16 @@ actor CodexLogUsageScanner {
         return [homeDirectory().appendingPathComponent(".codex")] + extra
     }
 
+    /// Rollouts modified since `modifiedSince`, for the live Activity tail (same discovery as `scan`).
+    func liveCandidateFiles(modifiedSince: Date) -> [URL] {
+        Self.sessionFiles(
+            homes: codexHomes(),
+            additionalSessions: additionalSessionDirectories.map { URL(fileURLWithPath: expandHome($0)) }
+        )
+        .filter { $0.mtime >= modifiedSince }
+        .map { URL(fileURLWithPath: $0.path) }
+    }
+
     /// Every rollout `*.jsonl` under each home's `sessions/` and `archived_sessions/` (a home with
     /// neither is scanned directly, ccusage's fallback). When both dirs of one home contain the same
     /// relative path, the `sessions/` copy wins — an archived duplicate must not double-count.
