@@ -23,6 +23,10 @@ struct WidgetRowView: View {
     /// their neighbors — the list supplies it — and both densities use it to pull consecutive
     /// one-liners into a single cluster (Compact a step harder).
     var condensedTop: Bool = false
+    /// Calm sweep cycle for a live meter (Claude/Codex Session while tokens are flowing); nil = static.
+    var liveSweepPeriod: TimeInterval? = nil
+    /// Draws the faint breathing glow at the live meter's leading edge (Live Activity setting).
+    var showsEdgeGlow = false
 
     @AppStorage(DensitySetting.key) private var density = DensitySetting.regular
     @Environment(\.reduceAnimations) private var reduceAnimations
@@ -460,7 +464,16 @@ struct WidgetRowView: View {
                 Capsule().fill(.quaternary)
                 Capsule()
                     .fill(partyMode ? PartyMode.meterFill : severityColor(state.severity))
+                    .overlay {
+                        if let liveSweepPeriod { CalmMeterSweep(period: liveSweepPeriod) }
+                    }
+                    .clipShape(Capsule())
                     .frame(width: fillWidth(track: proxy.size.width))
+            }
+            .overlay(alignment: .leading) {
+                if showsEdgeGlow, liveSweepPeriod != nil, data.hasData {
+                    MeterEdgeGlow().offset(x: fillWidth(track: proxy.size.width) - 7)
+                }
             }
             .overlay(alignment: .leading) {
                 if let tick {

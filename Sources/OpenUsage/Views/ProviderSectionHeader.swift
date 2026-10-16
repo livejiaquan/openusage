@@ -24,6 +24,9 @@ struct ProviderSectionHeader: View {
     /// Dashboard-only screenshot action. The reorder preview omits it, while Customize uses its own
     /// row type and is unaffected by this header.
     var onCopyScreenshot: (() -> Bool)?
+    /// Live tokens per minute for this provider (dashboard only, Claude/Codex); hidden while the
+    /// hover-revealed copy button shows so the two never overlap.
+    var liveRate: Double?
 
     /// Header type and icon track the density setting like the rows do, so Compact shrinks the
     /// whole section anatomy — not just the rows under it.
@@ -38,7 +41,8 @@ struct ProviderSectionHeader: View {
         warning: String? = nil,
         refreshing: Bool = false,
         staleness: StalenessHint? = nil,
-        onCopyScreenshot: (() -> Bool)? = nil
+        onCopyScreenshot: (() -> Bool)? = nil,
+        liveRate: Double? = nil
     ) {
         self.provider = provider
         self.plan = plan
@@ -46,6 +50,7 @@ struct ProviderSectionHeader: View {
         self.refreshing = refreshing
         self.staleness = staleness
         self.onCopyScreenshot = onCopyScreenshot
+        self.liveRate = liveRate
     }
 
     var body: some View {
@@ -92,6 +97,9 @@ struct ProviderSectionHeader: View {
                     .accessibilityLabel(warning)
             }
             Spacer(minLength: 8)
+            if let liveRate, !(isHovered && onCopyScreenshot != nil) {
+                LiveRateChip(providerName: provider.displayName, rate: liveRate)
+            }
             if let onCopyScreenshot {
                 CopyFeedbackButton(
                     accessibilityLabel: "Copy \(provider.displayName) Screenshot",

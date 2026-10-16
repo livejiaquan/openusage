@@ -21,6 +21,9 @@ struct WidgetGroupedListView: View {
     @State private var activeProviderID: String?
     @State private var activeMetricID: String?
     @AppStorage(DensitySetting.key) private var density = DensitySetting.regular
+    @AppStorage(LiveActivitySettings.headerSpeedKey) private var headerSpeedEnabled = true
+    @AppStorage(LiveActivitySettings.animatedMetersKey) private var animatedMetersEnabled = true
+    @AppStorage(LiveActivitySettings.edgeGlowKey) private var edgeGlowEnabled = false
 
     @Environment(\.codexResetClaims) private var codexResetClaims
 
@@ -35,6 +38,14 @@ struct WidgetGroupedListView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .onPreferenceChange(ReorderFramePreferenceKey.self) { frameStore.frames = $0 }
         .animation(Motion.spring, value: layout.displayGroups.map(\.provider.id))
+    }
+
+    /// This provider card's live rate, when it is the card that owns its family's chip.
+    private func liveRate(for providerID: String) -> Double? {
+        guard let family = LiveActivityComposer.chipFamily(
+            forProviderID: providerID, providerIDs: layout.displayGroups.map(\.provider.id)
+        ) else { return nil }
+        return container.liveActivity.view(scope: dataStore.historyScopeID).providerRates[family]
     }
 
     private func section(_ group: ProviderGroup) -> some View {
@@ -53,7 +64,8 @@ struct WidgetGroupedListView: View {
             warning: dataStore.headerNotice(for: group.provider.id),
             refreshing: dataStore.refreshingProviderIDs.contains(group.provider.id),
             staleness: dataStore.stalenessHint(for: group.provider.id),
-            onCopyScreenshot: { shareCard(group) }
+            onCopyScreenshot: { shareCard(group) },
+            liveRate: headerSpeedEnabled ? liveRate(for: group.provider.id) : nil
         )
         // Keep the provider mark and hover-revealed copy control aligned with the card's content edges.
         .padding(.horizontal, 8)
@@ -233,7 +245,10 @@ struct WidgetGroupedListView: View {
             data: data,
             onToggleResetDisplay: { dataStore.resetDisplayMode.toggle() },
             onToggleMeterStyle: { dataStore.meterStyle.toggle() },
-            condensedTop: condensedTop
+            condensedTop: condensedTop,
+            liveSweepPeriod: animatedMetersEnabled && data.title.hasPrefix("Session")
+                ? liveRate(for: providerID).flatMap(CalmMeterSweep.period(forRate:)) : nil,
+            showsEdgeGlow: edgeGlowEnabled
         )
             .environment(\.codexResetClaim, codexResetClaims[providerID])
             .contentShape(Rectangle())
