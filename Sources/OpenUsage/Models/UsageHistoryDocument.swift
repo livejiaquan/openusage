@@ -141,7 +141,7 @@ enum UsageHistoryDocumentError: Error, LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .unsupportedSchema: "This Mac wrote a newer usage-history format. Update OpenUsage."
+        case .unsupportedSchema: "This Mac wrote a newer usage-history format. Update \(AppBrand.name)."
         case .invalidDevice: "The synced Mac identity is invalid."
         case .invalidProvider: "The synced provider identifier is invalid."
         case .invalidIdentity: "The synced account identity is invalid."

@@ -27,14 +27,18 @@ enum AboutPanel {
         ]
 
         let credits = NSMutableAttributedString()
-        credits.append(NSAttributedString(string: "Created by ", attributes: base))
+        // TRADEMARK.md: a fork must say it isn't the official app. The original authors keep their credit.
+        credits.append(NSAttributedString(string: "An unofficial fork of ", attributes: base))
+        credits.append(link("OpenUsage", AppBrand.upstreamURL, base: base))
+        credits.append(NSAttributedString(string: ", which was\n", attributes: base))
+        credits.append(NSAttributedString(string: "created by ", attributes: base))
         credits.append(link("Robin Ebers", "https://itsbyrob.in/x", base: base))
         credits.append(NSAttributedString(string: "\nMaintained also by ", attributes: base))
         credits.append(link("Mert", "https://github.com/validatedev", base: base))
         credits.append(NSAttributedString(string: " & ", attributes: base))
         credits.append(link("David", "https://github.com/davidarny", base: base))
         credits.append(NSAttributedString(string: "\n\nOpen source on ", attributes: base))
-        credits.append(link("GitHub", "https://github.com/robinebers/openusage", base: base))
+        credits.append(link("GitHub", AppBrand.repositoryURL, base: base))
         return credits
     }
 

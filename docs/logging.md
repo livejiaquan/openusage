@@ -8,7 +8,7 @@ the level to Debug surfaces the extra detail in both places (see [Debugging](deb
 ## Where the log file lives
 
 ```
-~/Library/Logs/OpenUsage/OpenUsage.log
+~/Library/Logs/Tokamak/Tokamak.log
 ```
 
 The easiest way to grab it: open Settings -> Advanced and use **Copy Log Path** (puts the path on the
@@ -49,7 +49,7 @@ Every line is prefixed with a bracketed tag so the log is easy to grep:
 For example, to follow just the refresh cycle:
 
 ```sh
-grep '\[refresh\]' ~/Library/Logs/OpenUsage/OpenUsage.log
+grep '\[refresh\]' ~/Library/Logs/Tokamak/Tokamak.log
 ```
 
 ## What is never logged

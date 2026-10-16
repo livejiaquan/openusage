@@ -1,5 +1,10 @@
 # Privacy & Usage Data
 
+> **Tokamak:** this fork ships without an analytics project key, so it sends **no** daily ping, crash
+> report, or usage analytics, and Settings has no analytics toggle. The analytics sections below describe
+> the official OpenUsage app and don't apply to Tokamak builds unless someone adds their own key. Provider
+> requests, pricing downloads, and [Remote Devices](remote-devices.md) work as described.
+
 OpenUsage always sends an **anonymous daily active ping** and **anonymous crash reports** so we can
 count active users and fix app crashes. These are not optional.
 

@@ -141,7 +141,7 @@ final class GrokProviderTests: XCTestCase {
                 XCTAssertNil(request.body)
                 XCTAssertEqual(request.headers["Authorization"], "Bearer token")
                 XCTAssertEqual(request.headers["X-XAI-Token-Auth"], GrokUsageClient.tokenAuthHeader)
-                XCTAssertEqual(request.headers["User-Agent"], "OpenUsage")
+                XCTAssertEqual(request.headers["User-Agent"], AppBrand.name)
                 return HTTPResponse(statusCode: 200, headers: [:], body: GrokCreditsFixtures.capturedResponseBody)
             }
             return Self.defaultRoutes(request)

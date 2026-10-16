@@ -26,7 +26,7 @@ struct ShareCardChrome<Content: View>: View {
         HStack(spacing: 6) {
             ProviderIcon(source: .providerMark("openusage"), inset: 0)
                 .frame(width: 14, height: 14)
-            Text("Monitor Your AI Subscriptions with OpenUsage")
+            Text("Monitor Your AI Subscriptions with \(AppBrand.name)")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
         }

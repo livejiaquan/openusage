@@ -19,9 +19,9 @@ enum ClaudeAuthError: Error, LocalizedError, Equatable {
         case .desktopPermissionRequired:
             return "Claude Desktop login found. Refresh once and choose Always Allow to connect it."
         case .swapTokenExpired:
-            return "Claude Swap login is stale. Launch this account with `cswap run`, then refresh OpenUsage."
+            return "Claude Swap login is stale. Launch this account with `cswap run`, then refresh \(AppBrand.name)."
         case .desktopTokenExpired:
-            return "Claude Desktop login is stale. Open Claude Desktop, then refresh OpenUsage."
+            return "Claude Desktop login is stale. Open Claude Desktop, then refresh \(AppBrand.name)."
         case .desktopCredentialsUnavailable:
             return "Claude Desktop login couldn't be read. Open Claude Desktop, then try again."
         case .sessionExpired:

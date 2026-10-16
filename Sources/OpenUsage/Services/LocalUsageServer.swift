@@ -7,7 +7,7 @@ import Network
 /// connection gets `503 {"error":"server_busy"}` immediately.
 @MainActor
 final class LocalUsageServer {
-    static let port: UInt16 = 6736
+    static let port: UInt16 = 6740
     private static let maxConcurrentConnections = 16
     private static let headLimit = 8192
 

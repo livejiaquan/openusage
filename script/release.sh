@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Builds a distributable, Developer ID-signed, notarized OpenUsage.app and wraps it in a DMG. The app
+# Builds a distributable, Developer ID-signed, notarized Tokamak.app (a fork of OpenUsage) and wraps it in a DMG. The app
 # is a universal binary (arm64 + x86_64) so it runs on both Apple Silicon and Intel Macs; the DMG is the
 # only output. The appcast is produced separately by Sparkle's generate_appcast (in release.yml), which
 # signs the DMG with the EdDSA key and writes/updates appcast.xml. Runs in CI (release.yml) and locally
@@ -9,13 +9,12 @@ set -euo pipefail
 #
 # Required env:
 #   CODESIGN_IDENTITY     Developer ID Application identity (name or hash)
-#   ICLOUD_PROVISIONING_PROFILE  Developer ID provisioning profile with the production iCloud container
 #   SPARKLE_PUBLIC_KEY    base64 EdDSA public key -> baked into Info.plist (SUPublicEDKey). generate_appcast
 #                         only signs the DMG if this matches the private key it signs with.
 #   OPENUSAGE_VERSION     human version, e.g. 0.7.0 (CFBundleShortVersionString)
 # Optional env:
 #   OPENUSAGE_BUILD       CFBundleVersion (monotonic). Default: git commit count.
-#   FEED_URL              appcast URL baked into the app. Default: GitHub Pages project URL.
+#   FEED_URL              appcast URL baked into the app. Default: this fork's GitHub Pages URL.
 #   NOTARY_APPLE_ID / NOTARY_APP_PASSWORD / NOTARY_TEAM_ID   Apple ID, app-specific password, and team
 #                         ID for notarytool. When all three are set, the app and DMG are notarized + stapled.
 #   ALLOW_UNNOTARIZED=1   Skip notarization for a LOCAL dry run. Without it, missing notary creds is a
@@ -25,12 +24,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 : "${CODESIGN_IDENTITY:?set CODESIGN_IDENTITY to your Developer ID Application identity}"
-: "${ICLOUD_PROVISIONING_PROFILE:?set ICLOUD_PROVISIONING_PROFILE to the iCloud provisioning profile path}"
 : "${SPARKLE_PUBLIC_KEY:?set SPARKLE_PUBLIC_KEY to your base64 EdDSA public key}"
 : "${OPENUSAGE_VERSION:?set OPENUSAGE_VERSION, e.g. 0.7.0}"
 
-APP_NAME="OpenUsage"
-BUNDLE_ID="com.robinebers.openusage"
+APP_NAME="Tokamak"                      # user-facing name, bundle executable, and DMG name
+TARGET_NAME="OpenUsage"                 # SwiftPM product name (internal, kept for upstream merges)
+BUNDLE_ID="com.livejiaquan.tokamak"
 MIN_SYSTEM_VERSION="15.0"
 VERSION="$OPENUSAGE_VERSION"
 # CFBundleShortVersionString carries the full version, including any pre-release suffix (e.g.
@@ -39,7 +38,7 @@ VERSION="$OPENUSAGE_VERSION"
 # monotonic commit count below), not this string, and Developer ID notarization does not require it to
 # be numeric. (Sparkle's own docs use a beta short version, e.g. "2.0b1".)
 BUILD="${OPENUSAGE_BUILD:-$(git rev-list --count HEAD)}"
-FEED_URL="${FEED_URL:-https://robinebers.github.io/openusage/appcast.xml}"
+FEED_URL="${FEED_URL:-https://livejiaquan.github.io/openusage/appcast.xml}"
 DMG_NAME="$APP_NAME-$VERSION.dmg"
 
 DIST_DIR="$ROOT_DIR/dist"
@@ -49,14 +48,12 @@ APP_MACOS="$APP_CONTENTS/MacOS"
 APP_HELPERS="$APP_CONTENTS/Helpers"
 APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$APP_NAME"
-CLI_BINARY="$APP_HELPERS/openusage"
+CLI_BINARY="$APP_HELPERS/tokamak"
 DMG_PATH="$DIST_DIR/$DMG_NAME"
 # dSYMs for crash symbolication (uploaded to PostHog by release.yml). A folder, since posthog-cli's
 # `dsym upload --directory` and Sparkle both want a directory of bundles, not a single path.
 DSYM_DIR="$DIST_DIR/dSYMs"
 APP_DSYM="$DSYM_DIR/$APP_NAME.app.dSYM"
-ENTITLEMENTS_TEMPLATE="$ROOT_DIR/script/OpenUsage.release.entitlements.plist"
-ENTITLEMENTS="$DIST_DIR/OpenUsage.release.resolved.entitlements.plist"
 
 # Decide notarization up front. CI always supplies the notarization login; a local dry run can
 # opt out with ALLOW_UNNOTARIZED=1 (the build will then be Gatekeeper-blocked on other Macs). Missing
@@ -87,7 +84,7 @@ echo "==> building $APP_NAME $VERSION ($BUILD) — universal (arm64 + x86_64)"
 swift build -c release --arch arm64 --arch x86_64 -Xswiftc -g --product OpenUsage
 swift build -c release --arch arm64 --arch x86_64 -Xswiftc -g --product openusage-cli
 BUILD_DIR="$(swift build -c release --arch arm64 --arch x86_64 -Xswiftc -g --show-bin-path)"
-BUILD_BINARY="$BUILD_DIR/$APP_NAME"
+BUILD_BINARY="$BUILD_DIR/$TARGET_NAME"
 BUILD_CLI_BINARY="$BUILD_DIR/openusage-cli"
 [ -x "$BUILD_BINARY" ] || { echo "missing built binary: $BUILD_BINARY" >&2; exit 1; }
 [ -x "$BUILD_CLI_BINARY" ] || { echo "missing built CLI: $BUILD_CLI_BINARY" >&2; exit 1; }
@@ -145,22 +142,8 @@ for bundle in "$BUILD_DIR"/*.bundle; do
 done
 shopt -u nullglob
 
-# Install the app icon. Prefer the prebuilt compiled catalog: actool on GitHub's runners (Xcode 26.4.1
-# and 26.5) crashes on the Icon Composer `.icon` refractivity feature (Apple regression FB20183399), so
-# CI can't compile it. The committed Assets.car is produced by a working actool via script/compile_icon.sh;
-# regenerate it there whenever assets/AppIcon.icon changes. Fall back to actool where it works (e.g. local).
-if [ -f "$ROOT_DIR/assets/AppIcon.prebuilt/Assets.car" ]; then
-  echo "==> installing prebuilt app icon"
-  cp "$ROOT_DIR/assets/AppIcon.prebuilt/Assets.car" "$APP_RESOURCES/Assets.car"
-  [ -f "$ROOT_DIR/assets/AppIcon.prebuilt/AppIcon.icns" ] \
-    && cp "$ROOT_DIR/assets/AppIcon.prebuilt/AppIcon.icns" "$APP_RESOURCES/AppIcon.icns"
-else
-  echo "==> compiling app icon"
-  xcrun actool "$ROOT_DIR/assets/AppIcon.icon" --compile "$APP_RESOURCES" \
-    --app-icon AppIcon --enable-on-demand-resources NO --development-region en \
-    --target-device mac --platform macosx --minimum-deployment-target "$MIN_SYSTEM_VERSION" \
-    --output-partial-info-plist /dev/null --output-format human-readable-text --errors --warnings
-fi
+# Tokamak's own icon (assets/TokamakIcon); upstream's Icon Composer logo is trademarked and unused here.
+cp "$ROOT_DIR/assets/TokamakIcon/AppIcon.icns" "$APP_RESOURCES/AppIcon.icns"
 
 cat >"$APP_CONTENTS/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -175,7 +158,6 @@ cat >"$APP_CONTENTS/Info.plist" <<PLIST
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$BUILD</string>
   <key>LSMinimumSystemVersion</key><string>$MIN_SYSTEM_VERSION</string>
-  <key>CFBundleIconName</key><string>AppIcon</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>LSUIElement</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
@@ -184,23 +166,11 @@ cat >"$APP_CONTENTS/Info.plist" <<PLIST
   <key>SUPublicEDKey</key><string>$SPARKLE_PUBLIC_KEY</string>
   <key>SUEnableAutomaticChecks</key><true/>
   <key>SUScheduledCheckInterval</key><integer>3600</integer>
-  <key>NSUbiquitousContainers</key>
-  <dict>
-    <key>iCloud.com.robinebers.openusage</key>
-    <dict>
-      <key>NSUbiquitousContainerIsDocumentScopePublic</key><false/>
-      <key>NSUbiquitousContainerName</key><string>OpenUsage</string>
-      <key>NSUbiquitousContainerSupportedFolderLevels</key><string>None</string>
-    </dict>
-  </dict>
 </dict>
 </plist>
 PLIST
 
-cp "$ICLOUD_PROVISIONING_PROFILE" "$APP_CONTENTS/embedded.provisionprofile"
-"$ROOT_DIR/script/render_icloud_entitlements.sh" \
-  "$ENTITLEMENTS_TEMPLATE" "$ICLOUD_PROVISIONING_PROFILE" "$ENTITLEMENTS" \
-  "iCloud.com.robinebers.openusage"
+# iCloud Sync is off in this fork, so no provisioning profile or entitlements are embedded.
 
 # Embed + sign Sparkle (Developer ID, hardened runtime, secure timestamp).
 "$ROOT_DIR/script/embed_sparkle.sh" "$APP_BUNDLE" "$APP_BINARY" "$CODESIGN_IDENTITY" "--options runtime --timestamp"
@@ -208,11 +178,9 @@ codesign --force --options runtime --timestamp --sign "$CODESIGN_IDENTITY" "$CLI
 
 echo "==> signing app (Developer ID, hardened runtime)"
 # Not --deep: the Sparkle framework is signed above and must keep that signature.
-codesign --force --options runtime --timestamp --entitlements "$ENTITLEMENTS" \
+codesign --force --options runtime --timestamp \
   --sign "$CODESIGN_IDENTITY" "$APP_BUNDLE"
 codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
-codesign -d --entitlements :- "$APP_BUNDLE" 2>&1 | grep -q "iCloud.com.robinebers.openusage" \
-  || { echo "signed app is missing the production iCloud entitlement" >&2; exit 1; }
 
 # Notarize + staple the app itself (not just the DMG) so it launches cleanly even offline after a
 # Sparkle update extracts it from the disk image.

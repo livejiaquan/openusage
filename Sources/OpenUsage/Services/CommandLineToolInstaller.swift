@@ -26,8 +26,8 @@ final class CommandLineToolInstaller {
 
     init(
         sourcePath: String = Bundle.main.bundleURL
-            .appendingPathComponent("Contents/Helpers/openusage").path,
-        destinationPath: String = "/usr/local/bin/openusage",
+            .appendingPathComponent("Contents/Helpers/\(AppBrand.cliCommand)").path,
+        destinationPath: String = "/usr/local/bin/\(AppBrand.cliCommand)",
         fileManager: FileManager = .default,
         performPrivileged: (@MainActor (Operation, String, String) -> OperationResult)? = nil
     ) {
@@ -60,11 +60,11 @@ final class CommandLineToolInstaller {
         refreshStatus()
         guard status != .installed else { return }
         guard status != .conflict else {
-            errorMessage = "\(destinationPath) already exists and wasn't installed by OpenUsage."
+            errorMessage = "\(destinationPath) already exists and wasn't installed by \(AppBrand.name)."
             return
         }
         guard fileManager.isExecutableFile(atPath: sourcePath) else {
-            errorMessage = "The bundled terminal helper couldn't be found. Reinstall OpenUsage and try again."
+            errorMessage = "The bundled terminal helper couldn't be found. Reinstall \(AppBrand.name) and try again."
             return
         }
         handle(performPrivileged(.install, sourcePath, destinationPath), action: "install")

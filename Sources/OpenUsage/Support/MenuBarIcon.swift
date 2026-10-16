@@ -1,7 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// Renders the OpenUsage brand gauge mark into a template `NSImage` for the menu bar.
+/// Renders the app's brand mark (Tokamak's ring, stored as `ProviderIcons/openusage.svg` so the lookup
+/// key stays upstream's) into a template `NSImage` for the menu bar.
 /// Reuses the same SVG→`ProviderIconShape` pipeline as the provider tiles, so there is no
 /// asset catalog or second SVG parser to maintain.
 @MainActor

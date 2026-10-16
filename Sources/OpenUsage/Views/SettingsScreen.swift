@@ -54,7 +54,6 @@ struct SettingsScreen: View {
         // Same section rhythm as the dashboard and Customize (all read the density setting).
         VStack(alignment: .leading, spacing: density.sectionSpacing) {
             generalSection
-            ICloudSyncSettingsSection(sync: container.iCloudSync)
             RemoteDevicesSettingsSection(store: container.remoteDevices)
                 // Settings stays mounted while hidden. A new visit starts at the device list.
                 .id(layout.screen == .settings)
@@ -116,7 +115,7 @@ struct SettingsScreen: View {
             row("Global Shortcut") {
                 ShortcutRecorderField(name: .togglePopover, isVisible: layout.screen == .settings)
                     .id(shortcutFieldGeneration)
-                    .hoverTooltip("Open OpenUsage from anywhere")
+                    .hoverTooltip("Open \(AppBrand.name) from anywhere")
             }
         }
     }
@@ -211,26 +210,29 @@ struct SettingsScreen: View {
                 Toggle("", isOn: $privacy.hideUsageWhileScreenSharing)
                     .settingsSwitchStyle()
             }
-            Text("While your screen is shared or recorded, the menu bar shows “OpenUsage” instead of your usage.")
+            Text("While your screen is shared or recorded, the menu bar shows “\(AppBrand.name)” instead of your usage.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 12)
                 .padding(.bottom, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            row("Help Make OpenUsage Better") {
-                Toggle("", isOn: Binding(
-                    get: { container.telemetry.isEnabled },
-                    set: { container.telemetry.setEnabled($0) }
-                ))
-                .settingsSwitchStyle()
+            // Builds without an analytics key send nothing, so there is nothing to opt into.
+            if TelemetryConfig.isConfigured {
+                row("Help Make \(AppBrand.name) Better") {
+                    Toggle("", isOn: Binding(
+                        get: { container.telemetry.isEnabled },
+                        set: { container.telemetry.setEnabled($0) }
+                    ))
+                    .settingsSwitchStyle()
+                }
+                // Daily activity and crash reports are always on; the toggle only gates extra analytics.
+                Text("Share additional anonymous usage stats that tell the team where to improve.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            // Daily activity and crash reports are always on; the toggle only gates extra analytics.
-            Text("Share additional anonymous usage stats that tell the team where to improve.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -285,8 +287,8 @@ struct SettingsScreen: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                         .hoverTooltip(notificationsAuth == .denied
-                            ? "Notifications are turned off for OpenUsage. Enable them in System Settings."
-                            : "OpenUsage needs permission to send alerts.")
+                            ? "Notifications are turned off for \(AppBrand.name). Enable them in System Settings."
+                            : "\(AppBrand.name) needs permission to send alerts.")
                 }
             }
             .padding(.horizontal, 8)
@@ -393,7 +395,7 @@ struct SettingsScreen: View {
                 .padding(.bottom, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
             if commandLineTool.status == .conflict {
-                inlineNotice("\(commandLineTool.destinationPath) already exists and wasn't installed by OpenUsage.")
+                inlineNotice("\(commandLineTool.destinationPath) already exists and wasn't installed by \(AppBrand.name).")
             } else if let errorMessage = commandLineTool.errorMessage {
                 inlineNotice(errorMessage)
             }

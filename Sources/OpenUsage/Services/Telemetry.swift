@@ -13,7 +13,7 @@ enum TelemetryConfig {
     /// The project token baked into the build. Replace `phc_REPLACE_ME` with the real US-region
     /// `phc_…` key (safe to commit — it's a client write-only key), or leave it and set
     /// `OPENUSAGE_POSTHOG_TOKEN` at runtime for local testing.
-    private static let bakedToken = "phc_vGEqXEpQNwViyKnMNWvmKWpv8XxMT3yaeYi6gfidr4nf"
+    private static let bakedToken = placeholderToken
 
     static var token: String {
         let env = ProcessInfo.processInfo.environment["OPENUSAGE_POSTHOG_TOKEN"]?
@@ -21,6 +21,9 @@ enum TelemetryConfig {
         if let env, !env.isEmpty { return env }
         return bakedToken
     }
+
+    /// False in builds without a real project token; the sink stays inert and Settings hides the toggle.
+    static var isConfigured: Bool { token.hasPrefix("phc_") && token != placeholderToken }
 
     /// US cloud. Switch to "https://eu.i.posthog.com" only with an EU-region project token.
     static let host = "https://us.i.posthog.com"

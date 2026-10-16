@@ -50,7 +50,7 @@ struct PopoverFooter: View {
 
     private var footerIdentity: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("OpenUsage \(AppInfo.version)")
+            Text("\(AppBrand.name) \(AppInfo.version)")
             if let notice = layout.pinLimitNotice {
                 Text(notice)
                     .foregroundStyle(Theme.notice)
