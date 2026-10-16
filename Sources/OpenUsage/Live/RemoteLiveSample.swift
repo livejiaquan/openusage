@@ -25,6 +25,13 @@ struct RemoteLiveSample: Equatable, Sendable {
         (familyBuckets[family] ?? LiveRateBuckets(now: importedAt)).history(now: importedAt)
     }
 
+    /// The same sample with only these providers' activity.
+    func restricted(to families: Set<LiveFamily>) -> RemoteLiveSample {
+        RemoteLiveSample(deviceID: deviceID, importedAt: importedAt,
+                         familyBuckets: familyBuckets.filter { families.contains($0.key) },
+                         lastFailureAt: lastFailureAt)
+    }
+
     func isAvailable(now: Date) -> Bool {
         guard now.timeIntervalSince(importedAt) <= Self.staleAfter else { return false }
         if let lastFailureAt, lastFailureAt > importedAt { return false }

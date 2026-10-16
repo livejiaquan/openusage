@@ -21,19 +21,30 @@ struct LiveRateBuckets: Equatable, Sendable {
 
     mutating func add(tokens: Int, at timestamp: Date, now: Date) {
         advance(to: now)
-        let age = now.timeIntervalSince(timestamp)
-        guard tokens > 0,
-              age <= Self.bucketDuration * Double(Self.bucketCount),
-              age >= -Self.futureTolerance
-        else { return }
-        let index = Self.bucketCount - 1 - (newestSlot - min(Self.slot(of: timestamp), newestSlot))
-        guard index >= 0 else { return }
+        guard tokens > 0, let index = index(of: timestamp, now: now) else { return }
         buckets[index] += tokens
+    }
+
+    /// Takes back tokens counted earlier (a duplicate log entry replaced by a larger one). Never below zero.
+    mutating func remove(tokens: Int, at timestamp: Date, now: Date) {
+        advance(to: now)
+        guard tokens > 0, let index = index(of: timestamp, now: now) else { return }
+        buckets[index] = max(0, buckets[index] - tokens)
+    }
+
+    private func index(of timestamp: Date, now: Date) -> Int? {
+        let age = now.timeIntervalSince(timestamp)
+        guard age <= Self.bucketDuration * Double(Self.bucketCount), age >= -Self.futureTolerance else { return nil }
+        let index = Self.bucketCount - 1 - (newestSlot - min(Self.slot(of: timestamp), newestSlot))
+        return index >= 0 ? index : nil
     }
 
     /// Rolls the window forward. A gap of 30 minutes or more empties it; going backwards is a no-op.
     mutating func advance(to now: Date) {
-        let target = Self.slot(of: now)
+        advance(toSlot: Self.slot(of: now))
+    }
+
+    private mutating func advance(toSlot target: Int) {
         guard target > newestSlot else { return }
         let shift = target - newestSlot
         if shift >= Self.bucketCount {
@@ -61,12 +72,14 @@ struct LiveRateBuckets: Equatable, Sendable {
         return current.buckets.map { Double($0) * perMinute }
     }
 
+    /// Sums parts bucket by bucket. After the clock steps backwards some parts are anchored ahead of
+    /// `now`, so everything aligns to the newest anchor instead of dropping those parts.
     static func merged(_ parts: [LiveRateBuckets], now: Date) -> LiveRateBuckets {
         var result = LiveRateBuckets(now: now)
+        result.newestSlot = max(result.newestSlot, parts.map(\.newestSlot).max() ?? result.newestSlot)
         for part in parts {
             var aligned = part
-            aligned.advance(to: now)
-            guard aligned.newestSlot == result.newestSlot else { continue }
+            aligned.advance(toSlot: result.newestSlot)
             for index in result.buckets.indices { result.buckets[index] += aligned.buckets[index] }
         }
         return result

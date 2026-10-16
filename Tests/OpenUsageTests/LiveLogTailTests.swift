@@ -13,9 +13,10 @@ final class LiveLogTailTests: XCTestCase {
         try? FileManager.default.removeItem(at: dir)
     }
 
-    private func claudeLine(id: String, request: String, input: Int, output: Int = 0, at date: Date) -> String {
+    private func claudeLine(id: String, request: String, input: Int, output: Int = 0, at date: Date,
+                            sidechain: Bool = false) -> String {
         let stamp = OpenUsageISO8601.string(from: date)
-        return #"{"timestamp":"\#(stamp)","sessionId":"s","requestId":"\#(request)","version":"2.1.0","message":{"id":"\#(id)","model":"claude-test-model","usage":{"input_tokens":\#(input),"output_tokens":\#(output)}}}"#
+        return #"{"timestamp":"\#(stamp)","isSidechain":\#(sidechain),"sessionId":"s","requestId":"\#(request)","version":"2.1.0","message":{"id":"\#(id)","model":"claude-test-model","usage":{"input_tokens":\#(input),"output_tokens":\#(output)}}}"#
     }
 
     private func write(_ name: String, _ text: String) throws -> URL {
@@ -53,6 +54,33 @@ final class LiveLogTailTests: XCTestCase {
         let a = try write("a.jsonl", line)
         let b = try write("b.jsonl", line)
         let buckets = await tail(.claude, [a, b]).poll(now: now)
+        XCTAssertEqual(buckets.ratePerMinute(now: now), 200, accuracy: 0.001)
+    }
+
+    func testLargerDuplicateReplacesTheSmallerOne() async throws {
+        let now = Date()
+        let url = try write("a.jsonl", claudeLine(id: "m1", request: "r1", input: 100, at: now.addingTimeInterval(-60)) + "\n")
+        let tail = tail(.claude, [url])
+        _ = await tail.poll(now: now)
+        try append(url, claudeLine(id: "m1", request: "r1", input: 500, at: now.addingTimeInterval(-60)) + "\n")
+        let buckets = await tail.poll(now: now)
+        XCTAssertEqual(buckets.ratePerMinute(now: now), 100, accuracy: 0.001)   // 500 tokens over 5 minutes
+    }
+
+    func testLargerDuplicateInAnotherFileMovesTheCount() async throws {
+        let now = Date()
+        let a = try write("a.jsonl", claudeLine(id: "m1", request: "r1", input: 100, at: now.addingTimeInterval(-60)) + "\n")
+        let b = try write("b.jsonl", claudeLine(id: "m1", request: "r1", input: 500, at: now.addingTimeInterval(-60)) + "\n")
+        let buckets = await tail(.claude, [a, b]).poll(now: now)
+        XCTAssertEqual(buckets.ratePerMinute(now: now), 100, accuracy: 0.001)
+    }
+
+    func testSidechainReplayUnderANewRequestIsNotCounted() async throws {
+        let now = Date()
+        let parent = claudeLine(id: "m1", request: "r1", input: 1_000, at: now.addingTimeInterval(-60))
+        let replay = claudeLine(id: "m1", request: "r2", input: 1_000, at: now.addingTimeInterval(-50), sidechain: true)
+        let url = try write("a.jsonl", parent + "\n" + replay + "\n")
+        let buckets = await tail(.claude, [url]).poll(now: now)
         XCTAssertEqual(buckets.ratePerMinute(now: now), 200, accuracy: 0.001)
     }
 

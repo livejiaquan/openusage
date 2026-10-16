@@ -5,28 +5,59 @@ import SwiftUI
 struct UsageStatRow: View {
     let columns: [WidgetData]
     @AppStorage(DensitySetting.key) private var density = DensitySetting.regular
+    /// The column whose model breakdown is open (clicking a column with a breakdown opens it).
+    @State private var detailIndex: Int?
 
     var body: some View {
         VStack(alignment: .leading, spacing: density.rowInnerSpacing + 2) {
             Text("Usage").font(.system(size: density.labelPointSize, weight: .semibold))
             HStack(alignment: .top, spacing: 8) {
-                ForEach(Array(columns.enumerated()), id: \.offset) { _, data in
-                    column(data).frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(Array(columns.enumerated()), id: \.offset) { index, data in
+                    columnButton(data, index: index).frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, density.barRowPadding)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
+    }
+
+    /// Each column keeps what the single spend row offered: the incomplete-pricing warning and, when the
+    /// period has one, its model breakdown.
+    @ViewBuilder
+    private func columnButton(_ data: WidgetData, index: Int) -> some View {
+        if let breakdown = data.modelBreakdown {
+            Button { detailIndex = index } label: {
+                column(data).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Shows the model breakdown")
+            .popover(isPresented: Binding(get: { detailIndex == index },
+                                          set: { if !$0 { detailIndex = nil } }),
+                     arrowEdge: .trailing) {
+                ModelUsageDetail(title: data.title, breakdown: breakdown) { _ in }
+            }
+        } else {
+            column(data)
+        }
     }
 
     private func column(_ data: WidgetData) -> some View {
         let dollars = data.values.first { $0.kind == .dollars }
         let tokens = data.values.first { $0.kind == .count }
         return VStack(alignment: .leading, spacing: 1) {
-            Text(data.title == "Last 30 Days" ? "30 Days" : data.title)
-                .font(.system(size: density.planBadgePointSize))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 3) {
+                Text(data.title == "Last 30 Days" ? "30 Days" : data.title)
+                    .font(.system(size: density.planBadgePointSize))
+                    .foregroundStyle(.secondary)
+                if data.hasUnknownModels {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: density.planBadgePointSize - 1))
+                        .foregroundStyle(Theme.meterFill(.warning))
+                        .hoverTooltip(data.unknownModelTooltip)
+                        .accessibilityLabel("This period used a model with unknown pricing")
+                }
+            }
             Text(dollars.map { Formatters.currency($0.number) } ?? (data.hasData ? "—" : "No data"))
                 .font(.system(size: density.labelPointSize, weight: .semibold))
                 .monospacedDigit()

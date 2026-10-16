@@ -25,11 +25,14 @@ enum LiveActivityComposer {
 
     static func compose(
         scope: String, local: [LiveFamily: LiveRateBuckets], remote: [RemoteLiveSample],
-        devices: [RemoteUsageDevice], now: Date
+        devices: [RemoteUsageDevice], now: Date, enabledFamilies: Set<LiveFamily> = Set(LiveFamily.allCases)
     ) -> LiveActivityView {
         let knownIDs = Set(devices.map(\.id))
         let scope = (scope == "all" || scope == thisMacID || knownIDs.contains(scope)) ? scope : "all"
-        let samples = Dictionary(remote.map { ($0.deviceID, $0) }, uniquingKeysWith: { $1 })
+        // A provider turned off in Customize leaves every live surface, like it leaves Total Spend.
+        let local = local.filter { enabledFamilies.contains($0.key) }
+        let samples = Dictionary(remote.map { ($0.deviceID, $0.restricted(to: enabledFamilies)) },
+                                 uniquingKeysWith: { $1 })
         let available = samples.filter { $0.value.isAvailable(now: now) }
 
         let includesLocal = scope == "all" || scope == thisMacID
@@ -41,7 +44,7 @@ enum LiveActivityComposer {
 
         var providerRates: [LiveFamily: Double] = [:]
         var providerSeries: [LiveSeries] = []
-        for family in LiveFamily.allCases {
+        for family in LiveFamily.allCases where enabledFamilies.contains(family) {
             let localBuckets = includesLocal ? local[family] : nil
             let parts = (localBuckets.map { [$0.history(now: now)] } ?? []) + remoteInScope.map { $0.history(family) }
             guard !parts.isEmpty else { continue }
@@ -75,11 +78,26 @@ enum LiveActivityComposer {
     }
 
     /// The single provider card per family that shows the live chip: the bare family id ("claude"), or,
-    /// when only account cards exist, the first of them in display order.
-    static func chipFamily(forProviderID id: String, providerIDs: [String]) -> LiveFamily? {
+    /// when only account cards exist, the card whose account occupies the default home (`ownerIDs`) —
+    /// the live tail reads the default home's logs, so reordering cards never moves the chip.
+    static func chipFamily(forProviderID id: String, providerIDs: [String],
+                           ownerIDs: [LiveFamily: String] = [:]) -> LiveFamily? {
         guard let family = LiveFamily(rawValue: ProviderAccountID.family(of: id)) else { return nil }
         if providerIDs.contains(family.rawValue) { return id == family.rawValue ? family : nil }
-        return providerIDs.first { ProviderAccountID.family(of: $0) == family.rawValue } == id ? family : nil
+        guard let owner = ownerIDs[family], providerIDs.contains(owner) else { return nil }
+        return id == owner ? family : nil
+    }
+
+    /// Card id per family whose account currently occupies the default home, from the account registry.
+    static func defaultSourceOwners(_ records: [ProviderAccountRecord]) -> [LiveFamily: String] {
+        var owners: [LiveFamily: String] = [:]
+        for record in records where !record.removedTombstone {
+            guard let family = LiveFamily(rawValue: record.family), owners[family] == nil,
+                  record.sources.contains(where: { $0.kind == .defaultHome && $0.holdsDefaultSource })
+            else { continue }
+            owners[family] = record.id
+        }
+        return owners
     }
 
     private static func sum(_ parts: [[Double]]) -> [Double] {

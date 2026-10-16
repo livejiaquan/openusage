@@ -18,11 +18,11 @@ A provider card can also show **quick-link buttons** pinned at the bottom of its
 
 The card at the top shows how fast tokens are being used right now. The big number defaults to tokens per minute over the last 5 minutes; click it to switch to Spent Today or Tokens Today instead. Below it a small stacked chart covers the last 30 minutes, one band per provider (or per device, with the **Providers / Devices** switch). The dot next to the number breathes while anything is in use and goes still when nothing is.
 
-Speed for this Mac comes from Claude Code and Codex logs as they are written, and is only measured while the panel is open. Remote devices update at each import, so their speed is a snapshot; a device that hasn't imported in 15 minutes, or whose last import failed, is shown as not live with how long ago it last updated. **Usage From** applies here too.
+Speed for this Mac comes from Claude Code and Codex logs as they are written, and is only measured while the panel is open. Remote devices update at each import, so their speed is a snapshot; a device that hasn't imported in 15 minutes, or whose last import failed, is shown as not live with how long ago it last updated. **Usage From** applies here too, and a provider turned off in Customize is left out of the card, just as it is left out of Total Spend.
 
 When a quota meter is on track to run out before it resets, the card adds one line under the provider name, like `Session runs out about 40m before it resets at this pace.` Only the soonest one is shown. Collapse the card with its chevron to keep just the speed on one line.
 
-Claude and Codex headers also carry their own `● 982K/min`, and a provider that is actively working gets a slow highlight across its meters. Both can be turned off in [Settings → Live Activity](settings.md#live-activity).
+Claude and Codex headers also carry their own `● 982K/min` (with several accounts, on the card signed in at the default home), and a provider that is actively working gets a slow highlight across its meters. Both can be turned off in [Settings → Live Activity](settings.md#live-activity).
 
 ## Total Spend
 
@@ -59,7 +59,7 @@ account-wide. Quotas, plans, balances, and provider errors always describe this 
 
 **Top Models Today** lists the models with the most tokens today, with each one's share. It's on by default and sits behind the provider's caret.
 
-On demand, Today, Yesterday, and Last 30 Days share one **Usage** row with three columns. **Rate Limit Resets** shows one line per reset, soonest expiry first, with a countdown that turns orange when it's close; only two show until **Show N More**. For Codex, **Use** on a line opens the reset confirmation.
+On demand, Today, Yesterday, and Last 30 Days share one **Usage** row with three columns. Each column keeps the amber warning when a model couldn't be priced, and clicking a column opens that period's model breakdown. **Rate Limit Resets** shows one line per reset, soonest expiry first, with a countdown that turns orange when it's close; only two show until **Show N More**. For Codex, **Use** on a line opens the reset confirmation.
 
 Rows with a reset date tick every 30 seconds, so countdowns and pace stay live between refreshes.
 

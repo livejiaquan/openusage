@@ -16,6 +16,8 @@ final class AppContainer {
     let remoteDevices: RemoteUsageDeviceStore
     /// Live token speed (this Mac's log tails + remote import samples); runs only while the panel shows.
     let liveActivity: LiveActivityStore
+    /// Card per family whose account occupies the default home; its live chip and sweep belong to it.
+    let liveOwnerCardIDs: [LiveFamily: String]
     /// Single source of truth for which providers the user has turned off. Both stores consult it (via
     /// injected closures) and the Customize provider list drives it.
     let enablement: ProviderEnablementStore
@@ -26,6 +28,12 @@ final class AppContainer {
     /// Quota pace notification preferences (three independent triggers). Drives the Settings section
     /// and is read by `WidgetDataStore.evaluateNotifications`.
     let notificationSettings: NotificationSettingsStore
+
+    /// Live families with at least one enabled card; a provider turned off leaves the live surfaces.
+    var liveEnabledFamilies: Set<LiveFamily> {
+        Set(registry.providers.filter { enablement.isEnabled($0.id) }
+            .compactMap { LiveFamily(rawValue: ProviderAccountID.family(of: $0.id)) })
+    }
     /// Anonymous usage telemetry (mandatory daily activity and crashes, optional provider rollups).
     /// Exposed so Settings can toggle extra analytics and termination can flush queued events.
     let telemetry: TelemetryRecorder
@@ -148,6 +156,7 @@ final class AppContainer {
         self.iCloudSync = iCloudSync
         self.remoteDevices = remoteDevices
         self.liveActivity = liveActivity
+        self.liveOwnerCardIDs = LiveActivityComposer.defaultSourceOwners(ProviderAccountsStore(defaults: .standard).records)
 
         // The resets popover's claim service, sharing the Codex provider's credential loading and HTTP
         // client so the claim's auth can't drift from the provider's. A successful claim forces a Codex

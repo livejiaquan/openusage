@@ -79,7 +79,8 @@ struct DashboardContentView: View {
         }
         if showActivityCard {
             ActivityCard(
-                live: container.liveActivity.view(scope: container.dataStore.historyScopeID),
+                live: container.liveActivity.view(scope: container.dataStore.historyScopeID,
+                                                  enabledFamilies: container.liveEnabledFamilies),
                 todaySpend: todayTotals.spend,
                 todayTokens: todayTotals.tokens,
                 alert: container.dataStore.runOutAlert()
@@ -108,11 +109,12 @@ struct DashboardContentView: View {
         }
     }
 
-    /// Today's spend and tokens for the current Usage From scope (the rendered snapshots already are).
+    /// Today's spend and tokens for the current Usage From scope (the rendered snapshots already are),
+    /// over enabled providers only — a disabled provider keeps its last snapshot but leaves the totals.
     private var todayTotals: (spend: Double?, tokens: Int?) {
         let key = DailyUsageAccumulator.dayKey(from: Date())
         var spend = 0.0, tokens = 0, sawCost = false, sawDay = false
-        for snapshot in container.dataStore.snapshots.values {
+        for (providerID, snapshot) in container.dataStore.snapshots where container.enablement.isEnabled(providerID) {
             guard let day = snapshot.usageHistory?.series.daily.first(where: { $0.date == key }) else { continue }
             sawDay = true
             tokens += day.totalTokens

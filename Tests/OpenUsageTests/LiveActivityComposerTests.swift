@@ -85,9 +85,39 @@ final class LiveActivityComposerTests: XCTestCase {
         XCTAssertNil(LiveActivityComposer.chipFamily(forProviderID: "cursor", providerIDs: ids + ["cursor"]))
     }
 
-    func testChipFamilyFallsBackToFirstAccountCard() {
-        let ids = ["codex@11112222", "codex@33334444"]
-        XCTAssertEqual(LiveActivityComposer.chipFamily(forProviderID: "codex@11112222", providerIDs: ids), .codex)
+    func testChipFamilyFollowsTheDefaultSourceOwnerNotDisplayOrder() {
+        // The owner of the default home was dragged below another account card.
+        let ids = ["codex@33334444", "codex@11112222"]
+        let owners: [LiveFamily: String] = [.codex: "codex@11112222"]
+        XCTAssertEqual(LiveActivityComposer.chipFamily(forProviderID: "codex@11112222", providerIDs: ids,
+                                                       ownerIDs: owners), .codex)
+        XCTAssertNil(LiveActivityComposer.chipFamily(forProviderID: "codex@33334444", providerIDs: ids,
+                                                     ownerIDs: owners))
+        // Without a known owner no account card gets the chip.
         XCTAssertNil(LiveActivityComposer.chipFamily(forProviderID: "codex@33334444", providerIDs: ids))
+    }
+
+    func testDefaultSourceOwnersReadTheRegistry() {
+        let home = ProviderAccountSource(kind: .defaultHome, anchor: nil, holdsDefaultSource: true)
+        let swap = ProviderAccountSource(kind: .codexSwap, anchor: "/s", holdsDefaultSource: false)
+        let records = [
+            ProviderAccountRecord(id: "codex@1", family: "codex", identityKey: "a", label: nil, sources: [swap]),
+            ProviderAccountRecord(id: "codex@2", family: "codex", identityKey: "b", label: nil, sources: [home]),
+            ProviderAccountRecord(id: "claude", family: "claude", identityKey: "c", label: nil, sources: [home],
+                                  removedTombstone: true),
+        ]
+        XCTAssertEqual(LiveActivityComposer.defaultSourceOwners(records), [.codex: "codex@2"])
+    }
+
+    func testDisabledFamilyIsLeftOut() {
+        let remote = [sample(lab, claude: 2_000)]
+        let view = LiveActivityComposer.compose(scope: "all", local: local, remote: remote, devices: [lab], now: now,
+                                                enabledFamilies: [.codex])
+        XCTAssertEqual(view.providerSeries.map(\.id), ["codex"])
+        XCTAssertEqual(view.totalRate ?? -1, 100, accuracy: 0.001)
+        XCTAssertNil(view.providerRates[.claude])
+        // Device bands carry only enabled families too: This Mac is Codex only, the lab has no Codex.
+        XCTAssertEqual(view.deviceSeries.first { $0.id == LiveActivityComposer.thisMacID }?.rate ?? -1, 100, accuracy: 0.001)
+        XCTAssertEqual(view.deviceSeries.first { $0.id == lab.id }?.rate ?? -1, 0, accuracy: 0.001)
     }
 }

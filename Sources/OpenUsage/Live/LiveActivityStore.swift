@@ -49,9 +49,9 @@ final class LiveActivityStore {
         }
     }
 
-    func view(scope: String) -> LiveActivityView {
+    func view(scope: String, enabledFamilies: Set<LiveFamily>) -> LiveActivityView {
         LiveActivityComposer.compose(scope: scope, local: local, remote: Array(remoteDevices.liveSamples.values),
-                                     devices: remoteDevices.devices, now: now())
+                                     devices: remoteDevices.devices, now: now(), enabledFamilies: enabledFamilies)
     }
 
     private func pollOnce() async {

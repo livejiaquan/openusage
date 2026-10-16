@@ -70,9 +70,11 @@ struct WidgetGroupedListView: View {
     /// This provider card's live rate, when it is the card that owns its family's chip.
     private func liveRate(for providerID: String) -> Double? {
         guard let family = LiveActivityComposer.chipFamily(
-            forProviderID: providerID, providerIDs: layout.displayGroups.map(\.provider.id)
+            forProviderID: providerID, providerIDs: layout.displayGroups.map(\.provider.id),
+            ownerIDs: container.liveOwnerCardIDs
         ) else { return nil }
-        return container.liveActivity.view(scope: dataStore.historyScopeID).providerRates[family]
+        return container.liveActivity.view(scope: dataStore.historyScopeID,
+                                           enabledFamilies: container.liveEnabledFamilies).providerRates[family]
     }
 
     private func section(_ group: ProviderGroup) -> some View {

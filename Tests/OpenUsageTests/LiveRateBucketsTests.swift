@@ -20,6 +20,27 @@ final class LiveRateBucketsTests: XCTestCase {
         XCTAssertEqual(history.dropLast().reduce(0, +), 0, accuracy: 0.001)
     }
 
+    func testMergeAfterClockRollbackKeepsEveryPart() {
+        // A file's buckets were anchored before the clock stepped back 90 s; a newer file started after.
+        var ahead = LiveRateBuckets(now: now)
+        ahead.add(tokens: 600, at: now, now: now)
+        let earlier = now.addingTimeInterval(-90)
+        var fresh = LiveRateBuckets(now: earlier)
+        fresh.add(tokens: 300, at: earlier, now: earlier)
+        let merged = LiveRateBuckets.merged([ahead, fresh], now: earlier)
+        XCTAssertEqual(merged.buckets.reduce(0, +), 900)
+        XCTAssertEqual(merged.ratePerMinute(now: earlier), 180, accuracy: 0.001)
+    }
+
+    func testRemoveTakesBackTokensWithoutGoingNegative() {
+        var buckets = LiveRateBuckets(now: now)
+        buckets.add(tokens: 500, at: now.addingTimeInterval(-60), now: now)
+        buckets.remove(tokens: 200, at: now.addingTimeInterval(-60), now: now)
+        XCTAssertEqual(buckets.buckets.reduce(0, +), 300)
+        buckets.remove(tokens: 900, at: now.addingTimeInterval(-60), now: now)
+        XCTAssertEqual(buckets.buckets.reduce(0, +), 0)
+    }
+
     func testLongGapClearsBuckets() {
         var buckets = LiveRateBuckets(now: now)
         buckets.add(tokens: 5_000, at: now.addingTimeInterval(-30), now: now)
