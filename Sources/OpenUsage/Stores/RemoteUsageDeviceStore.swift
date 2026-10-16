@@ -19,6 +19,8 @@ final class RemoteUsageDeviceStore {
     private(set) var devices: [RemoteUsageDevice]
     private(set) var errors: [String: String] = [:]
     private(set) var lastUpdated: [String: Date] = [:]
+    /// Each device's activity as of its last import (memory only; see `RemoteLiveSample`).
+    private(set) var liveSamples: [String: RemoteLiveSample] = [:]
     var isRefreshing: Bool { !refreshingIDs.isEmpty }
 
     func isRefreshing(_ id: String) -> Bool { refreshingIDs.contains(id) }
@@ -69,6 +71,7 @@ final class RemoteUsageDeviceStore {
         let changedConnection = devices[index].connectionKey != device.connectionKey
         devices[index] = device
         if changedConnection {
+            liveSamples.removeValue(forKey: device.id)
             documents.removeValue(forKey: device.id)
             lastUpdated.removeValue(forKey: device.id)
             persistDocuments()
@@ -93,6 +96,7 @@ final class RemoteUsageDeviceStore {
 
     func remove(_ id: String) {
         devices.removeAll { $0.id == id }
+        liveSamples.removeValue(forKey: id)
         documents.removeValue(forKey: id)
         errors.removeValue(forKey: id)
         lastUpdated.removeValue(forKey: id)
@@ -103,6 +107,7 @@ final class RemoteUsageDeviceStore {
 
     func removeAll() {
         devices = []
+        liveSamples = [:]
         documents = [:]
         errors = [:]
         lastUpdated = [:]
@@ -139,11 +144,13 @@ final class RemoteUsageDeviceStore {
         else { return }
         defer { refreshingIDs.remove(id) }
         do {
-            let document = try await client.fetch(device)
+            let result = try await client.fetch(device)
+            let document = result.document
             try document.validate()
             // A device removed while SSH was in flight must not reappear in the combined view.
             guard devices.contains(where: { $0.id == id && $0.enabled && $0.connectionKey == device.connectionKey }) else { return }
             documents[id] = document
+            liveSamples[id] = result.liveSample
             lastUpdated[id] = document.updatedAt
             errors[id] = nil
             persistDocuments()
@@ -151,6 +158,7 @@ final class RemoteUsageDeviceStore {
         } catch {
             guard devices.contains(where: { $0.id == id && $0.connectionKey == device.connectionKey }) else { return }
             errors[id] = error.localizedDescription
+            liveSamples[id]?.lastFailureAt = Date()
             AppLog.warn(.config, "remote usage \(device.name): \(error.localizedDescription)")
         }
     }

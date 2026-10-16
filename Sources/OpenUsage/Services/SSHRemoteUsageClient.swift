@@ -21,6 +21,12 @@ enum SSHRemoteUsageError: Error, LocalizedError {
     }
 }
 
+/// What one import produces: the priced daily summary that is persisted, and the in-memory live sample.
+struct RemoteFetchResult: Sendable {
+    let document: UsageHistoryDocument
+    let liveSample: RemoteLiveSample
+}
+
 struct RemoteUsageEvents: Decodable, Sendable {
     var schema: String
     var codex: [CodexLogUsageScanner.Event]
@@ -47,7 +53,7 @@ actor SSHRemoteUsageClient {
         self.probeTimeout = probeTimeout
     }
 
-    func fetch(_ device: RemoteUsageDevice) async throws -> UsageHistoryDocument {
+    func fetch(_ device: RemoteUsageDevice) async throws -> RemoteFetchResult {
         guard device.isValid else { throw SSHRemoteUsageError.invalidConfiguration }
         guard let url = Bundle.openUsageResources.url(forResource: "remote_usage_export", withExtension: "py")
         else { throw SSHRemoteUsageError.missingExporter }
@@ -61,8 +67,13 @@ actor SSHRemoteUsageClient {
             throw SSHRemoteUsageError.invalidResponse
         }
         guard events.schema == Self.schema else { throw SSHRemoteUsageError.invalidResponse }
+        let importedAt = Date()
+        let liveSample = RemoteLiveSample.from(events: events, deviceID: device.id, importedAt: importedAt)
         let pricing = await ModelPricingStore.shared.current()
-        return Self.document(device: device, events: events, pricing: pricing)
+        return RemoteFetchResult(
+            document: Self.document(device: device, events: events, pricing: pricing, now: importedAt),
+            liveSample: liveSample
+        )
     }
 
     /// A cheap check of authentication, the selected runtime, and the remote user's home.
