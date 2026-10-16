@@ -1,12 +1,14 @@
 import SwiftUI
 
 /// The top-of-dashboard live card: a headline (speed, today's spend, or today's tokens), a 30-minute
-/// stacked chart by provider or device, and a collapse caret matching the
+/// stacked chart by provider or device, an optional run-out alert, and a collapse caret matching the
 /// provider cards. Collapsed, it is one line with a sparkline.
 struct ActivityCard: View {
     let live: LiveActivityView
     let todaySpend: Double?
     let todayTokens: Int?
+    /// Shown only when some enabled limit is projected to run out before its reset.
+    var alert: RunOutAlert?
 
     @AppStorage(LiveActivitySettings.collapsedKey) private var collapsed = false
     @AppStorage(LiveActivitySettings.headlineKey) private var headline = ActivityHeadline.speed
@@ -72,6 +74,9 @@ struct ActivityCard: View {
             ForEach(Array(series.enumerated()), id: \.element.id) { index, item in
                 legendRow(item, color: ActivityPalette.color(for: item, index: index, breakdown: activeBreakdown))
             }
+            if let alert {
+                alertLine(alert)
+            }
         }
     }
 
@@ -86,6 +91,23 @@ struct ActivityCard: View {
                 .foregroundStyle(item.rate == nil ? .secondary : .primary)
         }
         .font(.system(size: density.supportingPointSize))
+        .accessibilityElement(children: .combine)
+    }
+
+    private func alertLine(_ alert: RunOutAlert) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text("\(Text(alert.providerName).fontWeight(.semibold)) \(alert.message)")
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.system(size: density.supportingPointSize))
+        .foregroundStyle(Theme.notice)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.13), in: RoundedRectangle(cornerRadius: 9))
+        .overlay { RoundedRectangle(cornerRadius: 9).strokeBorder(Color.orange.opacity(0.35), lineWidth: 0.5) }
+        .padding(.top, 4)
         .accessibilityElement(children: .combine)
     }
 

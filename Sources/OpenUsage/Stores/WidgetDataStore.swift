@@ -251,6 +251,19 @@ final class WidgetDataStore {
     /// State for metrics not visited this pass (e.g. a provider the user just disabled, or a metric
     /// removed from the layout) is pruned, so re-enabling/re-adding starts fresh rather than carrying a
     /// stale "already fired" flag.
+    /// The limit projected to run out soonest before its reset, across enabled providers' bounded metrics
+    /// (including ones behind a collapsed On Demand caret), for the Activity card's alert.
+    func runOutAlert(now: Date = Date()) -> RunOutAlert? {
+        let candidates = orderedDescriptors()
+            .filter { isProviderEnabled($0.providerID) }
+            .compactMap { descriptor -> (providerName: String, data: WidgetData)? in
+                let data = data(for: descriptor)
+                guard data.isBounded else { return nil }
+                return (registry.provider(id: descriptor.providerID)?.displayName ?? descriptor.providerID, data)
+            }
+        return RunOutAlert.soonest(candidates, now: now)
+    }
+
     func evaluateNotifications(now: Date = Date()) async {
         guard let settingsProvider = notificationSettings else { return }
         let toggles = settingsProvider().toggles

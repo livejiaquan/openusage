@@ -81,7 +81,8 @@ struct DashboardContentView: View {
             ActivityCard(
                 live: container.liveActivity.view(scope: container.dataStore.historyScopeID),
                 todaySpend: todayTotals.spend,
-                todayTokens: todayTotals.tokens
+                todayTokens: todayTotals.tokens,
+                alert: container.dataStore.runOutAlert()
             )
             .padding(.bottom, density.sectionSpacing)
         }

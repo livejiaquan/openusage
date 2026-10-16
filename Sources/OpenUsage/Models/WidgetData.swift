@@ -471,6 +471,20 @@ struct WidgetData: Hashable {
 // MARK: - Pace (meter state)
 
 extension WidgetData {
+    /// Seconds until the projected run-out, only when the meter is `.runningOut` with a run-out time
+    /// (the red "Limit in …" case). Feeds the Activity card's run-out alert.
+    func secondsToRunOut(now: Date = Date()) -> TimeInterval? {
+        guard case .runningOut(let eta, _) = meterState(now: now), eta != nil, let ctx = paceContext else { return nil }
+        return Pace.secondsToRunOut(used: used, limit: ctx.limit, resetsAt: ctx.resetsAt,
+                                    periodDuration: ctx.period, now: now)
+    }
+
+    /// How long before the reset the limit is projected to run out ("runs out about 22m before it resets").
+    func runOutLeadTime(now: Date = Date()) -> TimeInterval? {
+        guard let seconds = secondsToRunOut(now: now), let ctx = paceContext else { return nil }
+        let lead = ctx.resetsAt.timeIntervalSince(now.addingTimeInterval(seconds))
+        return lead > 0 ? lead : nil
+    }
     /// The inputs pacing needs, present only for a bounded metric with a known reset window. `nil`
     /// short-circuits the live pace verdict (the bar falls back to absolute level bands)
     /// (e.g. unbounded rows, no-data rows, rows whose reset/period cadence is unknown).
