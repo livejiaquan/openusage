@@ -36,6 +36,7 @@ final class LogDirectoryWatcher: @unchecked Sendable {
         FSEventStreamSetDispatchQueue(created, queue)
         FSEventStreamStart(created)
         stream = created
+        AppLog.debug(.lifecycle, "live log watcher started (\(paths.count) roots)")
     }
 
     func stop() {
@@ -44,6 +45,7 @@ final class LogDirectoryWatcher: @unchecked Sendable {
         FSEventStreamInvalidate(stream)
         FSEventStreamRelease(stream)
         self.stream = nil
+        AppLog.debug(.lifecycle, "live log watcher stopped")
     }
 
     deinit { stop() }
