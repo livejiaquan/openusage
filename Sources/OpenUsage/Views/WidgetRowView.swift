@@ -90,6 +90,13 @@ struct WidgetRowView: View {
             // The sparkline owns its own label + bars; a chart with no real points falls through to the
             // unbounded "No data" row below (and so descriptor template data never leaks here).
             UsageSparkline(data: data)
+        } else if data.showsResetExpiries, onToggleResetDisplay != nil {
+            // Dashboard only (static renders have no toggle): the list-style resets with inline Use.
+            ResetListRows(data: data, claim: codexResetClaim.map { service in
+                { expiry, redeemRequestID in
+                    await service.claim(creditExpiringAt: expiry, redeemRequestID: redeemRequestID)
+                }
+            })
         } else if data.isBounded {
             boundedRow
         } else {
