@@ -3,9 +3,10 @@ import AppKit
 /// The popover panel's backdrop: two full-frame layers built once and switched by visibility.
 ///
 /// `.opaque` shows a solid `NSBox` (the `Theme.trayNSColor` tray) so the data region never reveals the
-/// desktop. `.translucent` (Tokamak's default) shows AppKit Liquid Glass (`NSGlassEffectView`) on
-/// macOS 26, which lenses whatever is behind the window, and a behind-window `NSVisualEffectView` on
-/// macOS 15 (SwiftUI `glassEffect`/`Material` only sample in-app content, so they can't show the desktop).
+/// desktop. `.translucent` (Tokamak's default) shows a behind-window `NSVisualEffectView`: the HUD
+/// material on macOS 26, where each card is its own clear Liquid Glass (the Syrtis recipe — HUD-grade
+/// translucency keeps the wallpaper alive behind the glass cards), and the popover material on 15.
+/// (SwiftUI `glassEffect`/`Material` only sample in-app content, so they can't show the desktop.)
 ///
 /// Both children are permanent and pinned to the full frame: rebuilding on toggle would race the
 /// observer that drives the mode, and a partial frame could reveal a transparent strip during the
@@ -75,16 +76,14 @@ final class PopoverBackdropView: NSView {
         }
     }
 
-    /// Liquid Glass where available; the frosted behind-window material before macOS 26.
+    /// HUD material on macOS 26 (glass lives on the cards); the frosted popover material before that.
     private static func makeTranslucentLayer(cornerRadius: CGFloat) -> NSView {
-        if #available(macOS 26.0, *) {
-            let glass = NSGlassEffectView()
-            glass.style = .clear   // the most see-through variant; cards carry their own glass and scrim
-            glass.cornerRadius = cornerRadius
-            return glass
-        }
         let effect = NSVisualEffectView()
-        effect.material = .popover
+        if #available(macOS 26.0, *) {
+            effect.material = .hudWindow
+        } else {
+            effect.material = .popover
+        }
         effect.blendingMode = .behindWindow
         effect.state = .active
         effect.maskImage = roundedMaskImage(cornerRadius: cornerRadius)
