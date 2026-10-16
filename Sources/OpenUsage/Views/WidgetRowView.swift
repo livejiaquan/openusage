@@ -460,6 +460,11 @@ struct WidgetRowView: View {
                 Capsule().fill(.quaternary)
                 Capsule()
                     .fill(partyMode ? PartyMode.meterFill : severityColor(state.severity))
+                    .overlay {
+                        // DESIGN SPIKE: only the fast-moving session window gets the calm sweep.
+                        if data.title.hasPrefix("Session") { CalmMeterSweep() }
+                    }
+                    .clipShape(Capsule())
                     .frame(width: fillWidth(track: proxy.size.width))
             }
             .overlay(alignment: .leading) {

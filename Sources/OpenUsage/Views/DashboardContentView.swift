@@ -76,6 +76,13 @@ struct DashboardContentView: View {
             .font(.caption)
             .padding(.bottom, density.sectionSpacing)
         }
+        // DESIGN SPIKE: live activity card above the totals.
+        ActivityCard(
+            todaySpend: todayTotals.spend,
+            todayTokens: todayTotals.tokens,
+            remoteDeviceNames: container.remoteDevices.devices.map(\.name)
+        )
+        .padding(.bottom, density.sectionSpacing)
         // The cross-provider Total Spend ring stays visible whenever the user allows it and an enabled
         // provider can track spend, even before fresh data arrives or when every metric row is hidden.
         if showTotalSpend, layout.hasSpendCapableProvider {
@@ -96,6 +103,19 @@ struct DashboardContentView: View {
                 reorderLift: $reorderLift
             )
         }
+    }
+
+    /// Today's spend and tokens across the providers shown, from the same daily history the rows use.
+    private var todayTotals: (spend: Double?, tokens: Int?) {
+        let key = DailyUsageAccumulator.dayKey(from: Date())
+        var spend = 0.0, tokens = 0, sawCost = false, sawDay = false
+        for snapshot in container.dataStore.snapshots.values {
+            guard let day = snapshot.usageHistory?.series.daily.first(where: { $0.date == key }) else { continue }
+            sawDay = true
+            tokens += day.totalTokens
+            if let cost = day.costUSD { spend += cost; sawCost = true }
+        }
+        return (sawCost ? spend : nil, sawDay ? tokens : nil)
     }
 
     private func scopeName(_ id: String) -> String {
