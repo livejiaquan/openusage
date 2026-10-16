@@ -94,7 +94,8 @@ final class OpenCodeProvider: ProviderRuntime {
                     scope: .machineLocal,
                     estimatedCost: false,
                     sourceNote: sourceNote
-                )
+                ),
+            .topModelsToday(provider: provider)
         ] + WidgetDescriptor.spendTiles(provider: provider)
     }
 

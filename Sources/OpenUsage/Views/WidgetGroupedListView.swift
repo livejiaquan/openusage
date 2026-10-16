@@ -40,6 +40,33 @@ struct WidgetGroupedListView: View {
         .animation(Motion.spring, value: layout.displayGroups.map(\.provider.id))
     }
 
+    /// Runs of two or more adjacent Today / Yesterday / Last 30 Days rows (never across the caret or a
+    /// links row) render as one Usage row: `heads` maps a run's first metric to its columns, and the
+    /// run's later metrics are `members`, which render nothing.
+    private static func usageStatRuns(_ rows: [DashboardMetricCardRow]) -> (heads: [String: [WidgetData]], members: Set<String>) {
+        var dataByID: [String: WidgetData] = [:]
+        let ids = rows.map { row -> String in
+            guard case .metric(let entry) = row else { return "separator.\(row.id)" }
+            dataByID[entry.descriptor.id] = entry.data
+            return entry.descriptor.id
+        }
+        var heads: [String: [WidgetData]] = [:]
+        var members: Set<String> = []
+        for case .usageStats(let run) in UsageStatGrouping.group(ids) {
+            heads[run[0]] = run.compactMap { dataByID[$0] }
+            members.formUnion(run.dropFirst())
+        }
+        return (heads, members)
+    }
+
+    private static func accent(for providerID: String) -> Color? {
+        switch LiveFamily(rawValue: ProviderAccountID.family(of: providerID)) {
+        case .claude: ActivityPalette.claude
+        case .codex: ActivityPalette.codex
+        case nil: nil
+        }
+    }
+
     /// This provider card's live rate, when it is the card that owns its family's chip.
     private func liveRate(for providerID: String) -> Double? {
         guard let family = LiveActivityComposer.chipFamily(
@@ -151,6 +178,7 @@ struct WidgetGroupedListView: View {
             isExpanded: isExpanded,
             links: group.provider.visibleLinks
         )
+        let usageRuns = Self.usageStatRuns(cardRows)
         // Same card builder the lifted preview uses, so the floating chip can't drift from the live card.
         return DashboardMetricCard {
             // One stable list keeps the drag-owning metric row alive when it crosses the caret boundary.
@@ -159,8 +187,16 @@ struct WidgetGroupedListView: View {
             ForEach(cardRows) { cardRow in
                 switch cardRow {
                 case .metric(let entry):
-                    row(entry.descriptor, data: entry.data, in: providerID,
-                        condensedTop: condensedIDs.contains(entry.descriptor.id))
+                    if usageRuns.members.contains(entry.descriptor.id)
+                        || (entry.data.showsTopModels && TopModels.entries(from: entry.data.modelBreakdown).isEmpty) {
+                        EmptyView()
+                    } else if let columns = usageRuns.heads[entry.descriptor.id] {
+                        UsageStatRow(columns: columns)
+                            .contextMenu { rowMenu(entry.descriptor, providerID: providerID) }
+                    } else {
+                        row(entry.descriptor, data: entry.data, in: providerID,
+                            condensedTop: condensedIDs.contains(entry.descriptor.id))
+                    }
                 case .links(let links):
                     ProviderLinksView(links: links)
                 case .divider:
@@ -248,7 +284,8 @@ struct WidgetGroupedListView: View {
             condensedTop: condensedTop,
             liveSweepPeriod: animatedMetersEnabled && data.title.hasPrefix("Session")
                 ? liveRate(for: providerID).flatMap(CalmMeterSweep.period(forRate:)) : nil,
-            showsEdgeGlow: edgeGlowEnabled
+            showsEdgeGlow: edgeGlowEnabled,
+            providerAccent: Self.accent(for: providerID)
         )
             .environment(\.codexResetClaim, codexResetClaims[providerID])
             .contentShape(Rectangle())

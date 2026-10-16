@@ -27,6 +27,8 @@ struct WidgetRowView: View {
     var liveSweepPeriod: TimeInterval? = nil
     /// Draws the faint breathing glow at the live meter's leading edge (Live Activity setting).
     var showsEdgeGlow = false
+    /// Provider color for the Top Models share bars and today's trend bar (nil = the healthy meter blue).
+    var providerAccent: Color? = nil
 
     @AppStorage(DensitySetting.key) private var density = DensitySetting.regular
     @Environment(\.reduceAnimations) private var reduceAnimations
@@ -89,7 +91,10 @@ struct WidgetRowView: View {
         if data.isChart, data.hasData {
             // The sparkline owns its own label + bars; a chart with no real points falls through to the
             // unbounded "No data" row below (and so descriptor template data never leaks here).
-            UsageSparkline(data: data)
+            UsageSparkline(data: data, accent: providerAccent)
+        } else if data.showsTopModels {
+            TopModelsRow(data: data, entries: TopModels.entries(from: data.modelBreakdown),
+                         color: providerAccent ?? ActivityPalette.claude)
         } else if data.showsResetExpiries, onToggleResetDisplay != nil {
             // Dashboard only (static renders have no toggle): the list-style resets with inline Use.
             ResetListRows(data: data, claim: codexResetClaim.map { service in

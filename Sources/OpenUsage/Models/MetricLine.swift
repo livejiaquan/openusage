@@ -68,6 +68,8 @@ struct MetricChartPoint: Hashable, Sendable, Codable {
     var value: Double
     var label: String
     var valueLabel: String?
+    /// The day's estimated cost, when priced (Last 14 Days' "avg $X/day"). Optional so older payloads decode.
+    var costUSD: Double? = nil
 
     /// The hover readout for this day: the producer's pre-formatted label, or a compact token count as a
     /// fallback. One definition so the inline sparkline and the detail popover never format it differently.

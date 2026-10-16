@@ -39,6 +39,8 @@ struct WidgetData: Hashable {
     /// state when none are available) and lights up like the spend rows — so it stays reachable even
     /// at "0 available", where `expiriesAt` is empty. Off for every other row.
     var showsResetExpiries: Bool = false
+    /// Descriptor opt-in for the Top Models Today row, which reads the Today line's model breakdown.
+    var showsTopModels: Bool = false
     /// Names of models this period's spend used that have no known price. Their usage is excluded
     /// unless a fallback estimate is enabled; either way the missing-price warning stays visible.
     /// Drives the label warning triangle and its hover list. Empty for every other row.

@@ -152,8 +152,19 @@ extension WidgetDescriptor {
     /// The Usage Trend row: a day-by-day token sparkline backed by a provider `.chart` line. Not
     /// pinnable — the tray can't draw a chart — but otherwise a normal Customize metric (toggle,
     /// reorder, hide). `isChart` tells the dashboard how to render live chart points.
+    /// Top Models Today: the day's top three models by cost, read from the Today line's model breakdown
+    /// (so no provider mapper changes). Not pinnable — the tray can't draw a ranked list.
+    static func topModelsToday(provider: Provider) -> WidgetDescriptor {
+        var sample = WidgetData(title: "Top Models Today", icon: provider.icon, kind: .dollars, used: 0, limit: nil)
+        sample.selection = .all
+        sample.showsTopModels = true
+        return make(id: "\(provider.id).topModels", provider: provider, metricLabel: "Today", sample: sample,
+                    pinnable: false)
+    }
+
     static func usageTrend(provider: Provider) -> WidgetDescriptor {
-        var sample = WidgetData(title: "Usage Trend", icon: provider.icon, kind: .count, used: 0, limit: nil)
+        // Shown as "Last 14 Days" (Tokamak's restyle); the metric label stays "Usage Trend" so lines match.
+        var sample = WidgetData(title: "Last 14 Days", icon: provider.icon, kind: .count, used: 0, limit: nil)
         sample.isChart = true
         return make(id: "\(provider.id).trend", provider: provider, metricLabel: "Usage Trend",
                     sample: sample, pinnable: false)

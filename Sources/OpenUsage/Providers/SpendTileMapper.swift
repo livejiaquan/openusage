@@ -105,10 +105,12 @@ enum SpendTileMapper {
     /// Each point carries a "Jun 21" axis label and a pre-formatted "222M tokens" readout.
     private static func trendPoints(_ usage: DailyUsageSeries, now: Date) -> [MetricChartPoint] {
         var tokensByDay: [String: Double] = [:]
+        var costByDay: [String: Double] = [:]
         for day in usage.daily {
             let tokens = Double(day.totalTokens)
             guard tokens.isFinite, tokens >= 0, let key = dayKey(fromUsageDate: day.date) else { continue }
             tokensByDay[key, default: 0] += tokens
+            if let cost = day.costUSD, cost.isFinite, cost >= 0 { costByDay[key, default: 0] += cost }
         }
         guard tokensByDay.values.contains(where: { $0 > 0 }) else { return [] }
 
@@ -122,7 +124,8 @@ enum SpendTileMapper {
                 value: tokens,
                 // The app's localized "Jun 21" month/day, not a hardcoded "6/21".
                 label: Formatters.monthDayLabel(day),
-                valueLabel: MetricFormatter.number(tokens, kind: .count, style: .row) + " tokens"
+                valueLabel: MetricFormatter.number(tokens, kind: .count, style: .row) + " tokens",
+                costUSD: costByDay[key]
             )
         }
     }

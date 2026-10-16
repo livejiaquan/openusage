@@ -22,16 +22,16 @@ enum DefaultLayout {
 
     static let metricIDs: [String] = [
         "antigravity.geminiPro", "antigravity.geminiWeekly", "antigravity.claude", "antigravity.claudeWeekly",
-        "antigravity.trend", "antigravity.today", "antigravity.yesterday", "antigravity.last30",
+        "antigravity.trend", "antigravity.today", "antigravity.yesterday", "antigravity.last30", "antigravity.topModels",
 
         "claude.session", "claude.weekly", "claude.fable", "claude.trend",
-        "claude.extra", "claude.rateLimitResets", "claude.today", "claude.yesterday", "claude.last30",
+        "claude.extra", "claude.rateLimitResets", "claude.today", "claude.yesterday", "claude.last30", "claude.topModels",
 
         "codex.session", "codex.weekly", "codex.spark", "codex.sparkWeekly", "codex.trend",
-        "codex.credits", "codex.rateLimitResets", "codex.today", "codex.yesterday", "codex.last30",
+        "codex.credits", "codex.rateLimitResets", "codex.today", "codex.yesterday", "codex.last30", "codex.topModels",
 
         "cursor.usage", "cursor.auto", "cursor.api", "cursor.grokBot", "cursor.trend",
-        "cursor.onDemand", "cursor.today", "cursor.yesterday", "cursor.last30",
+        "cursor.onDemand", "cursor.today", "cursor.yesterday", "cursor.last30", "cursor.topModels",
 
         "copilot.premium", "copilot.extra", "copilot.orgCredits", "copilot.orgSpend",
         "copilot.chat", "copilot.completions",
@@ -39,12 +39,12 @@ enum DefaultLayout {
         "devin.daily", "devin.weekly", "devin.extra",
 
         "grok.weekly", "grok.trend",
-        "grok.payAsYouGo", "grok.today", "grok.yesterday", "grok.last30",
+        "grok.payAsYouGo", "grok.today", "grok.yesterday", "grok.last30", "grok.topModels",
 
         "ollama.session", "ollama.weekly", "ollama.monthly", "ollama.last4Weeks",
 
         "opencode.session", "opencode.weekly", "opencode.monthly", "opencode.trend",
-        "opencode.today", "opencode.yesterday", "opencode.last30",
+        "opencode.today", "opencode.yesterday", "opencode.last30", "opencode.topModels",
 
         "openrouter.credits", "openrouter.balance",
         "openrouter.today", "openrouter.week", "openrouter.month", "openrouter.keyLimit",
@@ -95,29 +95,29 @@ enum DefaultLayout {
         // Antigravity: the Gemini pool pair and usage trend stay above the fold; the non-Gemini
         // pool pair and spend-history rows sit below the caret, matching the other local scanners.
         "antigravity.claude", "antigravity.claudeWeekly",
-        "antigravity.today", "antigravity.yesterday", "antigravity.last30",
+        "antigravity.today", "antigravity.yesterday", "antigravity.last30", "antigravity.topModels",
         // Claude's core meters (Session, Weekly, Fable, Extra, Usage Trend) stay above the fold;
         // optional Sonnet, reset grants, and spend-history rows sit below the caret.
-        "claude.sonnet", "claude.rateLimitResets", "claude.today", "claude.yesterday", "claude.last30",
+        "claude.sonnet", "claude.rateLimitResets", "claude.today", "claude.yesterday", "claude.last30", "claude.topModels",
         // Codex's core Session/Weekly meters and Usage Trend stay above the fold; Spark (the optional
         // model-specific limits), credits, reset details, and spend rows sit below the caret.
         "codex.spark", "codex.sparkWeekly",
-        "codex.credits", "codex.rateLimitResets", "codex.today", "codex.yesterday", "codex.last30",
+        "codex.credits", "codex.rateLimitResets", "codex.today", "codex.yesterday", "codex.last30", "codex.topModels",
         "cursor.grokBot", "cursor.onDemand", "cursor.requests", "cursor.credits",
-        "cursor.today", "cursor.yesterday", "cursor.last30",
+        "cursor.today", "cursor.yesterday", "cursor.last30", "cursor.topModels",
         // Copilot: Credits (the metered premium pool) + Extra Usage stay above the fold; the org
         // billing pair (org-managed Business/Enterprise seats) and Chat + Completions sit below the
         // caret. Chat/Completions carry real counts on free only — on paid they're unlimited
         // (suppressed), so they read "No data" there.
         "copilot.orgCredits", "copilot.orgSpend", "copilot.chat", "copilot.completions",
         "devin.extra",
-        "grok.payAsYouGo", "grok.today", "grok.yesterday", "grok.last30",
+        "grok.payAsYouGo", "grok.today", "grok.yesterday", "grok.last30", "grok.topModels",
         // Ollama: Session, Weekly, and Monthly stay above the fold; the rolling four-week spend total
         // (always $0.00 on a subscription, real only for pay-as-you-go) sits below the caret.
         "ollama.last4Weeks",
         // OpenCode: the three Go caps (Session/Weekly/Monthly) and Usage Trend stay above the fold —
         // matching every other provider — with the spend tiles (Today/Yesterday/Last 30 Days) below.
-        "opencode.today", "opencode.yesterday", "opencode.last30",
+        "opencode.today", "opencode.yesterday", "opencode.last30", "opencode.topModels",
         // OpenRouter: Credits meter + Balance stay above the fold; period spend and the per-key cap
         // sit below the caret.
         "openrouter.today", "openrouter.week", "openrouter.month", "openrouter.keyLimit",

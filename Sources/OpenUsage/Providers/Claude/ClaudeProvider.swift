@@ -91,7 +91,8 @@ final class ClaudeProvider: ProviderRuntime {
                     scope: .machineLocal,
                     estimatedCost: true,
                     sourceNote: "From your Claude usage history (estimated)"
-                )
+                ),
+            .topModelsToday(provider: provider)
         ] + WidgetDescriptor.spendTiles(provider: provider)
     }
 

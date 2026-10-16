@@ -6,6 +6,8 @@ import SwiftUI
 /// numbers (`MetricChartPoint`); this view never computes usage, only draws it.
 struct UsageSparkline: View {
     let data: WidgetData
+    /// Today's bar color (the provider's); other days use a neutral track color.
+    let accent: Color?
     /// The row's per-day points (the producer already validated and capped them); held directly so the
     /// bars, the popover, and the accessibility label all read one list.
     private let points: [MetricChartPoint]
@@ -14,24 +16,33 @@ struct UsageSparkline: View {
     @Environment(\.reduceAnimations) private var reduceAnimations
     @State private var hover = HoverPopoverState()
 
-    /// Widest the bar strip grows to, and a floor so it can't collapse to a sliver next to a long title.
-    private static let maxChartWidth: CGFloat = 150
-    private static let minChartWidth: CGFloat = 90
     /// Per-bar floor (matches the original app) so a dense window never squashes bars below visibility.
     private static let minBarWidth: CGFloat = 2
 
-    init(data: WidgetData) {
+    /// Tokamak's "Last 14 Days" shows the most recent two weeks of the producer's window.
+    static let dayCount = 14
+
+    init(data: WidgetData, accent: Color? = nil) {
         self.data = data
-        self.points = data.chartPoints
+        self.accent = accent
+        self.points = Array(data.chartPoints.suffix(Self.dayCount))
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text(data.title)
-                .font(.system(size: density.supportingPointSize, weight: .semibold))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-            Spacer(minLength: 8)
+        VStack(alignment: .leading, spacing: density.rowInnerSpacing + 2) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(data.title)
+                    .font(.system(size: density.labelPointSize, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                if let averageCost {
+                    Text("avg \(Formatters.currency(averageCost))/day")
+                        .font(.system(size: density.supportingPointSize))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
             // Anchor the popover to the bar strip (not the whole row), so its arrow points straight up
             // at the chart rather than at the row's center, off to the left of the bars.
             bars
@@ -73,8 +84,15 @@ struct UsageSparkline: View {
         hover.overInline || hover.isPresented
     }
 
+    /// Mean cost over the shown days that were priced; nil when none were.
+    private var averageCost: Double? {
+        let costs = points.compactMap(\.costUSD)
+        return costs.isEmpty ? nil : costs.reduce(0, +) / Double(points.count)
+    }
+
     private var bars: some View {
         let maxValue = max(1, points.map(\.value).max() ?? 1)
+        let todayLabel = points.last?.label
         // The bars use the same blue as a healthy meter (`Theme.meterFill(.normal)`, system blue softened
         // for glass), so the trend reads as part of the card's visual language and tracks light/dark and
         // the accessibility contrast settings like every other bar.
@@ -82,20 +100,23 @@ struct UsageSparkline: View {
             // Keyed by the day label (unique — the producer collapses duplicate days) so a refresh that
             // adds or drops a day re-lays-out cleanly instead of remapping bars by position.
             ForEach(points, id: \.label) { point in
-                RoundedRectangle(cornerRadius: 1, style: .continuous)
-                    .fill(Theme.meterFill(.normal))
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(point.label == todayLabel
+                          ? (accent.map { AnyShapeStyle($0) } ?? Theme.meterFill(.normal)) : AnyShapeStyle(.quaternary))
                     .frame(minWidth: Self.minBarWidth, maxWidth: .infinity)
                     .frame(height: barHeight(point.value, max: maxValue))
             }
         }
-        .frame(minWidth: Self.minChartWidth, maxWidth: Self.maxChartWidth)
-        .frame(height: density.trendChartHeight, alignment: .bottom)
+        .frame(maxWidth: .infinity)
+        .frame(height: Self.barsHeight(density), alignment: .bottom)
     }
 
     /// A bar's height: proportional to the window's peak, with a visible floor so a small non-zero day
     /// never collapses to nothing, and a thin stub for a true zero so gaps still read as days.
+    private static func barsHeight(_ density: DensitySetting) -> CGFloat { density == .compact ? 20 : 26 }
+
     private func barHeight(_ value: Double, max maxValue: Double) -> CGFloat {
-        let height = density.trendChartHeight
+        let height = Self.barsHeight(density)
         guard value > 0 else { return 2 }
         let ratio = min(1, value / maxValue)
         return max(height * 0.18, height * ratio)

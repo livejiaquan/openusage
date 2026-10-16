@@ -56,7 +56,8 @@ final class AntigravityProvider: ProviderRuntime {
                     scope: .machineLocal,
                     estimatedCost: true,
                     sourceNote: Self.usageSourceNote
-                )
+                ),
+            .topModelsToday(provider: provider)
         ] + WidgetDescriptor.spendTiles(provider: provider)
     }
 

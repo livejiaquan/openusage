@@ -41,7 +41,8 @@ final class GrokProvider: ProviderRuntime {
                     scope: .machineLocal,
                     estimatedCost: true,
                     sourceNote: "From your Grok logs (estimated)"
-                )
+                ),
+            .topModelsToday(provider: provider)
             // Local spend tiles from completed turns in the Grok CLI's session transcripts.
         ] + WidgetDescriptor.spendTiles(provider: provider)
     }
