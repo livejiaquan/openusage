@@ -16,7 +16,7 @@ A provider card can also show **quick-link buttons** pinned at the bottom of its
 
 ## Activity
 
-The card at the top shows how fast tokens are being used right now. The big number defaults to tokens per minute over the last 5 minutes; click it to switch to Spent Today or Tokens Today instead. Below it a small stacked chart covers the last 30 minutes, one band per provider (or per device, with the **Providers / Devices** switch). The dot next to the number breathes while anything is in use and goes still when nothing is.
+The card at the top shows how fast tokens are being used right now. The big number defaults to tokens per minute over the last 5 minutes; click it to switch to Spent Today or Tokens Today instead. Below it a small stacked chart shows the same five-minute speed over the last half hour as a smooth line, one band per provider (or per device, with the **Providers / Devices** switch). The dot next to the number breathes while anything is in use and goes still when nothing is.
 
 Speed for this Mac comes from Claude Code and Codex logs as they are written, and is only measured while the panel is open. Remote devices update at each import, so their speed is a snapshot; a device that hasn't imported in 15 minutes, or whose last import failed, is shown as not live with how long ago it last updated. **Usage From** applies here too, and a provider turned off in Customize is left out of the card, just as it is left out of Total Spend.
 

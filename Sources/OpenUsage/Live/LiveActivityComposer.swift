@@ -4,7 +4,8 @@ struct LiveSeries: Equatable, Identifiable {
     let id: String
     let name: String
     let note: String?
-    /// 60 points in tokens per minute, oldest first; nil when the source has nothing current to show.
+    /// Chart points in tokens per minute (trailing five-minute rate), oldest first; nil when the source
+    /// has nothing current to show.
     let history: [Double]?
     let rate: Double?
 }
@@ -46,7 +47,7 @@ enum LiveActivityComposer {
         var providerSeries: [LiveSeries] = []
         for family in LiveFamily.allCases where enabledFamilies.contains(family) {
             let localBuckets = includesLocal ? local[family] : nil
-            let parts = (localBuckets.map { [$0.history(now: now)] } ?? []) + remoteInScope.map { $0.history(family) }
+            let parts = (localBuckets.map { [$0.smoothedHistory(now: now)] } ?? []) + remoteInScope.map { $0.smoothedHistory(family) }
             guard !parts.isEmpty else { continue }
             let rate = (localBuckets?.ratePerMinute(now: now) ?? 0) + remoteInScope.map { $0.ratePerMinute(family) }.reduce(0, +)
             providerRates[family] = rate
@@ -58,13 +59,13 @@ enum LiveActivityComposer {
         if includesLocal, !local.isEmpty {
             let merged = LiveRateBuckets.merged(Array(local.values), now: now)
             deviceSeries.append(LiveSeries(id: thisMacID, name: "This Mac", note: "live",
-                                           history: merged.history(now: now), rate: merged.ratePerMinute(now: now)))
+                                           history: merged.smoothedHistory(now: now), rate: merged.ratePerMinute(now: now)))
         }
         for device in devices where scope == "all" || scope == device.id {
             if let sample = available[device.id] {
                 deviceSeries.append(LiveSeries(id: device.id, name: device.name,
                                                note: "updated \(age(now.timeIntervalSince(sample.importedAt)))",
-                                               history: sample.history, rate: sample.ratePerMinute))
+                                               history: sample.smoothedHistory, rate: sample.ratePerMinute))
             } else {
                 let note = samples[device.id].map { "last import \(age(now.timeIntervalSince($0.importedAt)))" }
                     ?? "not imported yet"

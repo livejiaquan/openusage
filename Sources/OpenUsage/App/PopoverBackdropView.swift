@@ -3,9 +3,9 @@ import AppKit
 /// The popover panel's backdrop: two full-frame layers built once and switched by visibility.
 ///
 /// `.opaque` shows a solid `NSBox` (the `Theme.trayNSColor` tray) so the data region never reveals the
-/// desktop — the app's default look. `.translucent` shows a behind-window `NSVisualEffectView` that
-/// samples the desktop with vibrancy, which is the HIG-correct way to "increase transparency" (SwiftUI
-/// `glassEffect`/`Material` only sample in-app content, so they can't show the desktop).
+/// desktop. `.translucent` (Tokamak's default) shows AppKit Liquid Glass (`NSGlassEffectView`) on
+/// macOS 26, which lenses whatever is behind the window, and a behind-window `NSVisualEffectView` on
+/// macOS 15 (SwiftUI `glassEffect`/`Material` only sample in-app content, so they can't show the desktop).
 ///
 /// Both children are permanent and pinned to the full frame: rebuilding on toggle would race the
 /// observer that drives the mode, and a partial frame could reveal a transparent strip during the
@@ -17,10 +17,11 @@ final class PopoverBackdropView: NSView {
     enum Mode { case opaque, translucent }
 
     private let opaqueBox = NSBox()
-    private let vibrancy = NSVisualEffectView()
+    private let vibrancy: NSView
     private var currentMode: Mode = .opaque
 
     init(cornerRadius: CGFloat) {
+        vibrancy = Self.makeTranslucentLayer(cornerRadius: cornerRadius)
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
 
@@ -33,10 +34,6 @@ final class PopoverBackdropView: NSView {
         opaqueBox.wantsLayer = true                 // layer-backed so alphaValue animates
         opaqueBox.translatesAutoresizingMaskIntoConstraints = false
 
-        vibrancy.material = .popover
-        vibrancy.blendingMode = .behindWindow
-        vibrancy.state = .active
-        vibrancy.maskImage = Self.roundedMaskImage(cornerRadius: cornerRadius)
         vibrancy.wantsLayer = true
         vibrancy.alphaValue = 0                      // starts hidden; opaque tray is the default look
         vibrancy.translatesAutoresizingMaskIntoConstraints = false
@@ -76,6 +73,22 @@ final class PopoverBackdropView: NSView {
             opaqueBox.alphaValue = opaqueAlpha
             vibrancy.alphaValue = vibrancyAlpha
         }
+    }
+
+    /// Liquid Glass where available; the frosted behind-window material before macOS 26.
+    private static func makeTranslucentLayer(cornerRadius: CGFloat) -> NSView {
+        if #available(macOS 26.0, *) {
+            let glass = NSGlassEffectView()
+            glass.style = .regular
+            glass.cornerRadius = cornerRadius
+            return glass
+        }
+        let effect = NSVisualEffectView()
+        effect.material = .popover
+        effect.blendingMode = .behindWindow
+        effect.state = .active
+        effect.maskImage = roundedMaskImage(cornerRadius: cornerRadius)
+        return effect
     }
 
     /// A stretchable rounded-rectangle mask: a small rounded square whose cap insets equal the corner

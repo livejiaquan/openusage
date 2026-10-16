@@ -35,18 +35,36 @@ struct StackedActivityChart: View {
                 let top = (0..<count).map { baseline[$0] + layer.values[$0] }
                 var area = Path()
                 area.move(to: point(0, top[0]))
-                for index in 1..<count { area.addLine(to: point(index, top[index])) }
-                for index in stride(from: count - 1, through: 0, by: -1) { area.addLine(to: point(index, baseline[index])) }
+                Self.addCurve(&area, through: (0..<count).map { point($0, top[$0]) })
+                let lower = (0..<count).reversed().map { point($0, baseline[$0]) }
+                area.addLine(to: lower[0])
+                Self.addCurve(&area, through: lower)
                 area.closeSubpath()
                 context.fill(area, with: .color(layer.color.opacity(0.38)))
                 baseline = top
             }
             var line = Path()
             line.move(to: point(0, totals[0]))
-            for index in 1..<count { line.addLine(to: point(index, totals[index])) }
-            context.stroke(line, with: .color(.primary.opacity(0.7)), lineWidth: 1.2)
+            Self.addCurve(&line, through: (0..<count).map { point($0, totals[$0]) })
+            context.stroke(line, with: .color(.primary.opacity(0.7)),
+                           style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round))
         }
         .accessibilityHidden(true)
+    }
+
+    /// A smooth curve through `points` (Catmull-Rom as cubic Béziers), starting from the path's current
+    /// point, which must be `points[0]`. Control points are clamped vertically to their segment so the
+    /// curve never overshoots below zero or above a peak.
+    static func addCurve(_ path: inout Path, through points: [CGPoint]) {
+        guard points.count > 1 else { return }
+        for index in 0..<(points.count - 1) {
+            let p0 = points[max(index - 1, 0)], p1 = points[index]
+            let p2 = points[index + 1], p3 = points[min(index + 2, points.count - 1)]
+            let low = min(p1.y, p2.y), high = max(p1.y, p2.y)
+            let c1 = CGPoint(x: p1.x + (p2.x - p0.x) / 6, y: min(max(p1.y + (p2.y - p0.y) / 6, low), high))
+            let c2 = CGPoint(x: p2.x - (p3.x - p1.x) / 6, y: min(max(p2.y - (p3.y - p1.y) / 6, low), high))
+            path.addCurve(to: p2, control1: c1, control2: c2)
+        }
     }
 }
 

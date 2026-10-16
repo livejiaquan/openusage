@@ -41,6 +41,25 @@ final class LiveRateBucketsTests: XCTestCase {
         XCTAssertEqual(buckets.buckets.reduce(0, +), 0)
     }
 
+    func testSmoothedHistoryIsTheTrailingFiveMinuteRateAtEachPoint() {
+        var buckets = LiveRateBuckets(now: now)
+        buckets.add(tokens: 1_000, at: now, now: now)
+        let smoothed = buckets.smoothedHistory(now: now)
+        XCTAssertEqual(smoothed.count, 51)
+        XCTAssertEqual(smoothed.last ?? -1, buckets.ratePerMinute(now: now), accuracy: 0.001)   // matches the headline
+        XCTAssertEqual(smoothed.dropLast().reduce(0, +), 0, accuracy: 0.001)
+    }
+
+    func testSmoothedHistoryFlattensBursts() {
+        // One 3,000-token burst every 90 s: raw buckets spike, the trailing rate stays level.
+        var buckets = LiveRateBuckets(now: now)
+        for step in 0..<20 { buckets.add(tokens: 3_000, at: now.addingTimeInterval(Double(-step) * 90), now: now) }
+        let tail = buckets.smoothedHistory(now: now).suffix(30)
+        let raw = buckets.history(now: now).suffix(30)
+        XCTAssertGreaterThan(raw.max()! - raw.min()!, 5_000)
+        XCTAssertLessThan(tail.max()! - tail.min()!, 700)
+    }
+
     func testLongGapClearsBuckets() {
         var buckets = LiveRateBuckets(now: now)
         buckets.add(tokens: 5_000, at: now.addingTimeInterval(-30), now: now)

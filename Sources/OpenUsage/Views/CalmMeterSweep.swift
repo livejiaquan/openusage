@@ -22,7 +22,7 @@ struct CalmMeterSweep: View {
                 let progress = min(phase / 0.62, 1)          // travel, then rest for the remaining 38%
                 let eased = 0.5 - 0.5 * cos(Double.pi * progress)
                 let width = max(proxy.size.width * 0.45, 24)
-                let peak = colorScheme == .dark ? 0.16 : 0.5
+                let peak = colorScheme == .dark ? 0.42 : 0.7
                 LinearGradient(colors: [.white.opacity(0), .white.opacity(peak), .white.opacity(0)],
                                startPoint: .leading, endPoint: .trailing)
                     .frame(width: width)

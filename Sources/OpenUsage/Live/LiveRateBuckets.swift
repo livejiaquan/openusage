@@ -72,6 +72,23 @@ struct LiveRateBuckets: Equatable, Sendable {
         return current.buckets.map { Double($0) * perMinute }
     }
 
+    /// Tokens per minute, oldest first, each point the trailing-five-minute rate ending at that bucket —
+    /// the same measure as the headline — so the chart reads as a calm trend, not raw bursts. Only points
+    /// with a full five minutes behind them (51 of 60), so the chart never starts with a false ramp.
+    func smoothedHistory(now: Date) -> [Double] {
+        var current = self
+        current.advance(to: now)
+        let window = Int(Self.trailingWindow / Self.bucketDuration)
+        let minutes = Self.trailingWindow / 60
+        var running = 0
+        let all = current.buckets.indices.map { index in
+            running += current.buckets[index]
+            if index >= window { running -= current.buckets[index - window] }
+            return Double(running) / minutes
+        }
+        return Array(all.dropFirst(window - 1))
+    }
+
     /// Sums parts bucket by bucket. After the clock steps backwards some parts are anchored ahead of
     /// `now`, so everything aligns to the newest anchor instead of dropping those parts.
     static func merged(_ parts: [LiveRateBuckets], now: Date) -> LiveRateBuckets {

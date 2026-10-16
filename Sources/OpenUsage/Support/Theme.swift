@@ -117,9 +117,16 @@ private struct CardSurfaceModifier: ViewModifier {
                 // The AppKit backdrop already applies the system blur. A stable translucent surface here
                 // keeps text legible without stacking another live material pass under every card.
                 // Tokamak: a light frosted lift so the desktop reads through the card, not a flat gray slab.
+                // Tokamak: a thin lift over the Liquid Glass panel plus a hairline edge, so the desktop
+                // reads through the card instead of a gray slab.
                 Theme.cardShape
                     .fill(Color.white.opacity(colorScheme == .dark ? 0.07 : 0.55))
-                    .overlay { Theme.cardShape.fill(Theme.cardFill) }
+                    .overlay {
+                        Theme.cardShape.strokeBorder(
+                            colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.06),
+                            lineWidth: 0.5
+                        )
+                    }
             }
         }
     }

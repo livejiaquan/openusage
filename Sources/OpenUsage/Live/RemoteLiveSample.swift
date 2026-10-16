@@ -25,6 +25,13 @@ struct RemoteLiveSample: Equatable, Sendable {
         (familyBuckets[family] ?? LiveRateBuckets(now: importedAt)).history(now: importedAt)
     }
 
+    /// Chart points (trailing-five-minute rate), frozen at `importedAt` like the rate.
+    var smoothedHistory: [Double] { buckets.smoothedHistory(now: importedAt) }
+
+    func smoothedHistory(_ family: LiveFamily) -> [Double] {
+        (familyBuckets[family] ?? LiveRateBuckets(now: importedAt)).smoothedHistory(now: importedAt)
+    }
+
     /// The same sample with only these providers' activity.
     func restricted(to families: Set<LiveFamily>) -> RemoteLiveSample {
         RemoteLiveSample(deviceID: deviceID, importedAt: importedAt,
