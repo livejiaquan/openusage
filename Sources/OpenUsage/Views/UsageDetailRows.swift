@@ -17,7 +17,7 @@ struct UsageStatRow: View {
                 }
             }
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 12)
         .padding(.vertical, density.barRowPadding)
         .accessibilityElement(children: .contain)
     }

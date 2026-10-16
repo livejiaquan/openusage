@@ -63,7 +63,8 @@ extension View {
     @ViewBuilder
     func barGlass() -> some View {
         if #available(macOS 26, *) {
-            glassEffect(.regular, in: Rectangle())
+            // Tokamak: `.clear` to match the clear glass panel; `.regular` read as a darker band.
+            glassEffect(.clear, in: Rectangle())
         } else {
             background(.bar)
         }

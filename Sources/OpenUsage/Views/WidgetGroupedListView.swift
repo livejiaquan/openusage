@@ -96,8 +96,8 @@ struct WidgetGroupedListView: View {
             onCopyScreenshot: { shareCard(group) },
             liveRate: headerSpeedEnabled ? liveRate(for: group.provider.id) : nil
         )
-        // Keep the provider mark and hover-revealed copy control aligned with the card's content edges.
-        .padding(.horizontal, 8)
+        // The header sits just inside the card edge (4 pt), a step left of the card content (12 pt).
+        .padding(.horizontal, 4)
         .highPriorityGesture(providerDragGesture(for: group))
         .contextMenu {
             // Hides the whole provider section (the Customize provider list brings it back). Mirrors

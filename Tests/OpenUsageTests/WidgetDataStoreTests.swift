@@ -618,18 +618,18 @@ final class WidgetDataStoreTests: XCTestCase {
         let store = WidgetDataStore(registry: registry, providers: [], defaults: defaults)
         store.meterStyle = .used
         store.resetDisplayMode = .absolute
-        store.alwaysShowPacing = true
+        store.alwaysShowPacing = false
 
         store.resetDisplaySettings()
 
         XCTAssertEqual(store.meterStyle, .remaining)
         XCTAssertEqual(store.resetDisplayMode, .relative)
-        XCTAssertFalse(store.alwaysShowPacing)
+        XCTAssertTrue(store.alwaysShowPacing)   // Tokamak's default
         // A second store on the same suite must load the defaults back, not the pre-reset values.
         let reloaded = WidgetDataStore(registry: registry, providers: [], defaults: defaults)
         XCTAssertEqual(reloaded.meterStyle, .remaining)
         XCTAssertEqual(reloaded.resetDisplayMode, .relative)
-        XCTAssertFalse(reloaded.alwaysShowPacing)
+        XCTAssertTrue(reloaded.alwaysShowPacing)
     }
 
     private func makeUserDefaults(_ name: String) -> UserDefaults {

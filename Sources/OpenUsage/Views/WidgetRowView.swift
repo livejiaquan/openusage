@@ -67,7 +67,7 @@ struct WidgetRowView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 12)
         // Bar rows are multi-line and earn breathing room; single-line text rows (Today / Yesterday /
         // Last 30 Days) stay tighter so consecutive ones read as a cluster, not evenly-spaced
         // full-height rows. This differentiation — not the fonts — is what kills the "jumpy" rhythm.
@@ -235,22 +235,21 @@ struct WidgetRowView: View {
         .lineLimit(1)
     }
 
-    // The headline value is the row's payload — the number the user opened the popover to read —
-    // so it sits at `.primary` (vibrant full-contrast on the popover glass); the surrounding
-    // context (reset countdown, deficit) stays `.secondary`.
+    // Tokamak: the metric name carries the row (primary, semibold); the value line under the bar —
+    // "66% used" and its reset context — sits at `.secondary`, the design's quieter reading rhythm.
     @ViewBuilder
     private var headlineText: some View {
         if data.hasMeterStyleToggle, let onToggleMeterStyle {
             Button(action: onToggleMeterStyle) {
                 Text(data.headline)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(.secondary)
                     .contentTransition(.numericText())
             }
             .buttonStyle(.plain)
             .hoverTooltip(data.meterStyleTooltip)
         } else {
             Text(data.headline)
-                .foregroundStyle(.primary)
+                .foregroundStyle(.secondary)
                 .contentTransition(.numericText())
         }
     }

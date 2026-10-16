@@ -1,17 +1,15 @@
 import AppKit
 import SwiftUI
 
-/// The dashboard footer's trailing control: a single **Options ⌄** menu button in Liquid Glass. The
+/// The dashboard footer's trailing control: a single **Options ⌄** menu button (plain text in Tokamak). The
 /// earlier split button ("Customize" + separate chevron) confused people — two tap targets in one
 /// capsule read as one — so everything now lives in one obvious menu: Customize / Settings / Share
 /// Screenshot / Check for Updates / Report an Issue / About / Quit. Customize leads because it's the
 /// screen users reach for most; Settings stays one click away (and always via ⌘,).
 ///
-/// The capsule is a `.buttonStyle(.plain)` `Menu` with one `interactiveGlass(in: Capsule())` treatment
-/// behind it — the system `.buttonStyle(.glass)` renders flat on a `Menu` (its own button chrome wins),
-/// so the treatment goes on the container. Increase Transparency adds an adaptive frosted base beneath
-/// the glass for contrast; macOS 15 uses that frosted capsule as its fallback. The menu renders in its
-/// own `NSMenu`-backed window, which the panel's outside-click policy keeps the popover open for.
+/// It is a `.buttonStyle(.plain)` `Menu` with no capsule: the footer's glass band already reads as
+/// chrome. The menu renders in its own `NSMenu`-backed window, which the panel's outside-click policy
+/// keeps the popover open for.
 ///
 /// Only the dashboard shows this; the Customize and Settings screens carry their own top-leading back
 /// button (`PopoverTopBar`) to return home — the macOS-native place for it — so the footer control
@@ -26,7 +24,6 @@ struct HeaderView: View {
     @Environment(LayoutStore.self) private var layout
     @Environment(WidgetDataStore.self) private var dataStore
     @Environment(UpdaterController.self) private var updater
-    @Environment(PopoverTransparencyStore.self) private var transparency
     @Environment(\.colorScheme) private var colorScheme
     /// The current screen. The footer is fixed chrome keyed off `layout.screen` (it no longer slides
     /// per-page), so this control shows only when that's `.dashboard` and swaps in place on a switch.
@@ -39,16 +36,13 @@ struct HeaderView: View {
         leadingControl
     }
 
-    /// On the dashboard, the Options menu button on one glass capsule.
+    /// On the dashboard, the Options menu as plain text ("Options ⌄"), like the design; the glass footer
+    /// already reads as chrome, so a second capsule only added weight.
     @ViewBuilder
     private var leadingControl: some View {
         if screen == .dashboard {
             optionsButton
                 .fixedSize()
-                .interactiveGlass(
-                    in: Capsule(),
-                    reinforced: transparency.effectiveStyle.needsChromeLegibilityBacking
-                )
         }
     }
 
@@ -65,8 +59,7 @@ struct HeaderView: View {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 11, weight: .semibold))
             }
-            .padding(.leading, 14)
-            .padding(.trailing, 12)
+            .padding(.horizontal, 4)
             .frame(height: Self.controlHeight)
             .contentShape(Rectangle())
         }

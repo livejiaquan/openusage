@@ -59,7 +59,7 @@ struct PopoverFooter: View {
                 nextUpdateButton
             }
         }
-        .font(.caption2)
+        .font(.system(size: 11))
         .foregroundStyle(.secondary)
         .animation(Motion.spring, value: layout.pinLimitNotice)
     }

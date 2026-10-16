@@ -14,7 +14,7 @@ struct DashboardContentView: View {
     @Binding var scrollPosition: ScrollPosition
 
     @AppStorage(DensitySetting.key) private var density = DensitySetting.regular
-    @AppStorage(TotalSpendSetting.key) private var showTotalSpend = true
+    @AppStorage(TotalSpendSetting.key) private var showTotalSpend = TotalSpendSetting.defaultShown
     @AppStorage(LiveActivitySettings.cardKey) private var showActivityCard = true
 
     var body: some View {
@@ -68,13 +68,23 @@ struct DashboardContentView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(scopeName(container.dataStore.historyScopeID))
+                            .fontWeight(.medium)
                         Image(systemName: "chevron.down")
+                            .font(.system(size: density.planBadgePointSize - 2, weight: .semibold))
                     }
                     .foregroundStyle(.primary)
+                    .padding(.horizontal, 8)
+                    .frame(minHeight: 24)
+                    .background(Color.primary.opacity(0.09), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .contentShape(Rectangle())
                 }
+                .menuStyle(.button)
+                .buttonStyle(.plain)
                 .menuIndicator(.hidden)
+                .fixedSize()
             }
-            .font(.caption)
+            .font(.system(size: density.supportingPointSize))
+            .padding(.horizontal, 4)
             .padding(.bottom, density.sectionSpacing)
         }
         if showActivityCard {

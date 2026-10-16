@@ -46,7 +46,7 @@ final class StatusItemController: NSObject {
     /// Token for the appearance-change observer; held to follow the documented removal pattern.
     private var appearanceObserver: NSObjectProtocol?
     /// Corner radius of the panel surface; tuned to read like a system menu-bar popover.
-    private static let cornerRadius: CGFloat = 13
+    private static let cornerRadius: CGFloat = 18
 
     init(container: AppContainer, updater: UpdaterController) {
         self.container = container
@@ -144,6 +144,12 @@ final class StatusItemController: NSObject {
         panel.appearance = AppearanceSetting.current.nsAppearance
 
         let container = NSView()
+        // Clip the whole content view to the panel's rounded shape (continuous curve): unclipped, its
+        // square corners leave a dark rim around the rounded glass and a square window shadow.
+        container.wantsLayer = true
+        container.layer?.cornerRadius = Self.cornerRadius
+        container.layer?.cornerCurve = .continuous
+        container.layer?.masksToBounds = true
 
         // Backdrop: by default an opaque tray so the data region never shows the desktop through it
         // (Liquid Glass stays reserved for the footer chrome, rendered in-window over this backing). The

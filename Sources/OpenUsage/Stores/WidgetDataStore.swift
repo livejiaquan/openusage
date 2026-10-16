@@ -47,6 +47,8 @@ final class WidgetDataStore {
     private static let meterStyleKey = "meterStyle"
     private static let resetDisplayModeKey = "resetDisplayMode"
     private static let alwaysShowPacingKey = "alwaysShowPacing"
+    /// Tokamak shows pace on every meter by default (the design's "on pace" / tick on each bar).
+    static let alwaysShowPacingDefault = true
     /// How long a provider that just failed is skipped before the loop will probe it again. A failed
     /// refresh isn't cached, so — unlike a success, which the snapshot cache gates for an interval —
     /// nothing else stops the loop from re-probing a broken provider (logged-out Devin/Grok especially)
@@ -136,7 +138,7 @@ final class WidgetDataStore {
     func resetDisplaySettings() {
         meterStyle = .remaining
         resetDisplayMode = .relative
-        alwaysShowPacing = false
+        alwaysShowPacing = Self.alwaysShowPacingDefault
         historyScopeID = "all"
     }
 
@@ -176,7 +178,7 @@ final class WidgetDataStore {
         self.historyScopeID = defaults.string(forKey: Self.historyScopeKey) ?? "all"
         self.meterStyle = defaults.enumValue(forKey: Self.meterStyleKey, default: .remaining)
         self.resetDisplayMode = defaults.enumValue(forKey: Self.resetDisplayModeKey, default: .relative)
-        self.alwaysShowPacing = defaults.bool(forKey: Self.alwaysShowPacingKey)
+        self.alwaysShowPacing = defaults.object(forKey: Self.alwaysShowPacingKey) as? Bool ?? Self.alwaysShowPacingDefault
         // Stale-while-revalidate: load whatever was cached (expired included) so the menu bar and
         // dashboard show last-known values immediately at launch instead of "—"; the refresh loop
         // replaces them as soon as fresh data lands.

@@ -79,7 +79,7 @@ final class PopoverBackdropView: NSView {
     private static func makeTranslucentLayer(cornerRadius: CGFloat) -> NSView {
         if #available(macOS 26.0, *) {
             let glass = NSGlassEffectView()
-            glass.style = .regular
+            glass.style = .clear   // the most see-through variant; cards carry their own glass and scrim
             glass.cornerRadius = cornerRadius
             return glass
         }
