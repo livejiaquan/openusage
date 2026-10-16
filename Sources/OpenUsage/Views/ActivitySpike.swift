@@ -124,19 +124,19 @@ struct ActivityCard: View {
                                  upperColor: ActivityPalette.claude)
                 .frame(height: 44)
                 .padding(.top, 8)
-            HStack {
-                Text("Last 30 min · Preview data")
+            HStack(spacing: 6) {
+                Text("Last 30 min")
                     .font(.system(size: density.planBadgePointSize))
                     .foregroundStyle(.secondary)
-                Spacer()
+                Text("Preview")
+                    .font(.system(size: density.planBadgePointSize - 1, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(.quaternary, in: Capsule())
+                Spacer(minLength: 4)
                 if !remoteDeviceNames.isEmpty {
-                    Picker("Breakdown", selection: $breakdown) {
-                        ForEach(Breakdown.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .controlSize(.small)
-                    .fixedSize()
+                    QuietSegmentedControl(selection: $breakdown)
                 }
             }
             ForEach(rows.items, id: \.name) { item in
@@ -162,6 +162,8 @@ struct ActivityCard: View {
             .pickerStyle(.inline)
             .labelsHidden()
         } label: {
+            // `.button` menu style keeps the label's own order (text, then chevron); `.borderlessButton`
+            // moved the chevron in front of the text.
             HStack(spacing: 3) {
                 Text(headline.unit)
                 if !collapsed {
@@ -170,10 +172,12 @@ struct ActivityCard: View {
             }
             .font(.system(size: density.supportingPointSize))
             .foregroundStyle(.secondary)
+            .padding(.horizontal, 6)
             .frame(minHeight: 24)
             .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton)
+        .menuStyle(.button)
+        .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
         .disabled(collapsed)
@@ -240,6 +244,38 @@ struct ActivityCard: View {
             LegendItem(name: $0, note: "idle", color: .secondary, rate: 0)
         }
         return LegendRows(items: items, thisMacShare: share)
+    }
+}
+
+/// A low-key two-option switch (the native segmented control's accent fill was too loud for the card).
+struct QuietSegmentedControl: View {
+    @Binding var selection: ActivityCard.Breakdown
+    @AppStorage(DensitySetting.key) private var density = DensitySetting.regular
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(ActivityCard.Breakdown.allCases, id: \.self) { option in
+                Button {
+                    selection = option
+                } label: {
+                    Text(option.rawValue)
+                        .font(.system(size: density.planBadgePointSize, weight: selection == option ? .medium : .regular))
+                        .foregroundStyle(selection == option ? .primary : .secondary)
+                        .padding(.horizontal, 8)
+                        .frame(minHeight: 22)
+                        .background {
+                            if selection == option {
+                                RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.12))
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selection == option ? .isSelected : [])
+            }
+        }
+        .padding(1)
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
     }
 }
 
