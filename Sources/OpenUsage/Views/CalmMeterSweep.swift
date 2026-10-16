@@ -5,9 +5,9 @@ import SwiftUI
 /// Reduce Animations is on (`VisibilityGatedTimeline` renders t == 0 then).
 struct CalmMeterSweep: View {
     /// Tokens per minute that map to the fastest cycle.
-    static let peakRate: Double = 1_500_000
+    nonisolated static let peakRate: Double = 1_500_000
 
-    static func period(forRate rate: Double) -> TimeInterval? {
+    nonisolated static func period(forRate rate: Double) -> TimeInterval? {
         guard rate > 0 else { return nil }
         return 16 - 8 * min(rate / peakRate, 1)
     }

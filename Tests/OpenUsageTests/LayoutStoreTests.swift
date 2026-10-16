@@ -661,15 +661,15 @@ final class LayoutStoreTests: XCTestCase {
 
         XCTAssertEqual(Set(store.placed.map(\.descriptorID)), Set([
             "claude.session", "claude.weekly", "claude.fable", "claude.trend",
-            "claude.extra", "claude.rateLimitResets", "claude.today", "claude.yesterday", "claude.last30",
+            "claude.extra", "claude.rateLimitResets", "claude.topModels", "claude.today", "claude.yesterday", "claude.last30",
             "codex.session", "codex.weekly", "codex.spark", "codex.sparkWeekly", "codex.trend",
-            "codex.credits", "codex.rateLimitResets", "codex.today", "codex.yesterday", "codex.last30",
+            "codex.credits", "codex.rateLimitResets", "codex.topModels", "codex.today", "codex.yesterday", "codex.last30",
             "devin.daily", "devin.weekly", "devin.extra",
             "grok.weekly", "grok.trend",
-            "grok.payAsYouGo", "grok.today", "grok.yesterday", "grok.last30",
+            "grok.payAsYouGo", "grok.topModels", "grok.today", "grok.yesterday", "grok.last30",
             // Cursor spend tiles + usage trend are enabled, joining its live meters in the default layout.
             "cursor.usage", "cursor.auto", "cursor.api", "cursor.grokBot", "cursor.trend",
-            "cursor.onDemand", "cursor.today", "cursor.yesterday", "cursor.last30"
+            "cursor.onDemand", "cursor.topModels", "cursor.today", "cursor.yesterday", "cursor.last30"
         ]))
         XCTAssertTrue(store.isMetricEnabled("claude.fable"))
         XCTAssertFalse(store.isPinned("claude.fable"))
@@ -695,26 +695,26 @@ final class LayoutStoreTests: XCTestCase {
             "claude.session", "claude.weekly", "claude.fable", "claude.extra", "claude.trend"
         ])
         XCTAssertEqual(expandedByProvider["claude"], [
-            "claude.sonnet", "claude.rateLimitResets", "claude.today", "claude.yesterday", "claude.last30"
+            "claude.sonnet", "claude.rateLimitResets", "claude.topModels", "claude.today", "claude.yesterday", "claude.last30"
         ])
         XCTAssertEqual(primaryByProvider["codex"], ["codex.session", "codex.weekly", "codex.trend"])
         // Spark (the optional model-specific limits) leads the On Demand section, before credits.
         XCTAssertEqual(expandedByProvider["codex"], [
             "codex.spark", "codex.sparkWeekly",
-            "codex.credits", "codex.rateLimitResets", "codex.today", "codex.yesterday", "codex.last30"
+            "codex.credits", "codex.rateLimitResets", "codex.topModels", "codex.today", "codex.yesterday", "codex.last30"
         ])
         XCTAssertEqual(primaryByProvider["devin"], ["devin.daily", "devin.weekly"])
         XCTAssertEqual(expandedByProvider["devin"], ["devin.extra"])
         XCTAssertEqual(primaryByProvider["grok"], ["grok.weekly", "grok.trend"])
         XCTAssertEqual(expandedByProvider["grok"], [
-            "grok.payAsYouGo", "grok.today", "grok.yesterday", "grok.last30"
+            "grok.payAsYouGo", "grok.topModels", "grok.today", "grok.yesterday", "grok.last30"
         ])
         // Cursor spend tiles + usage trend are enabled: the trend joins the primary rows, and the
         // today/yesterday/last30 rows sit below the caret alongside the other secondary metrics.
         XCTAssertEqual(primaryByProvider["cursor"], ["cursor.usage", "cursor.auto", "cursor.api", "cursor.trend"])
         XCTAssertEqual(expandedByProvider["cursor"], [
             "cursor.grokBot", "cursor.onDemand", "cursor.requests", "cursor.credits",
-            "cursor.today", "cursor.yesterday", "cursor.last30"
+            "cursor.topModels", "cursor.today", "cursor.yesterday", "cursor.last30"
         ])
     }
 

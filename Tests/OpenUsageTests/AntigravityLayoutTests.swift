@@ -13,7 +13,7 @@ final class AntigravityLayoutTests: XCTestCase {
         XCTAssertEqual(store.placed.map(\.descriptorID), [
             "antigravity.geminiPro", "antigravity.geminiWeekly",
             "antigravity.claude", "antigravity.claudeWeekly", "antigravity.trend",
-            "antigravity.today", "antigravity.yesterday", "antigravity.last30"
+            "antigravity.topModels", "antigravity.today", "antigravity.yesterday", "antigravity.last30"
         ])
 
         // The Gemini pair is pinned (2-per-provider cap), mirroring Claude/Codex Session+Weekly.
@@ -26,7 +26,7 @@ final class AntigravityLayoutTests: XCTestCase {
         ])
         XCTAssertEqual(group?.expandedMetrics.map(\.id), [
             "antigravity.claude", "antigravity.claudeWeekly",
-            "antigravity.today", "antigravity.yesterday", "antigravity.last30"
+            "antigravity.topModels", "antigravity.today", "antigravity.yesterday", "antigravity.last30"
         ])
         XCTAssertEqual(store.spendCapableProviders.map(\.id), ["antigravity"])
     }
