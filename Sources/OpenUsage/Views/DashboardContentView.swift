@@ -15,6 +15,7 @@ struct DashboardContentView: View {
 
     @AppStorage(DensitySetting.key) private var density = DensitySetting.regular
     @AppStorage(TotalSpendSetting.key) private var showTotalSpend = true
+    @AppStorage(LiveActivitySettings.cardKey) private var showActivityCard = true
 
     var body: some View {
         PopoverScrollView {
@@ -76,6 +77,14 @@ struct DashboardContentView: View {
             .font(.caption)
             .padding(.bottom, density.sectionSpacing)
         }
+        if showActivityCard {
+            ActivityCard(
+                live: container.liveActivity.view(scope: container.dataStore.historyScopeID),
+                todaySpend: todayTotals.spend,
+                todayTokens: todayTotals.tokens
+            )
+            .padding(.bottom, density.sectionSpacing)
+        }
         // The cross-provider Total Spend ring stays visible whenever the user allows it and an enabled
         // provider can track spend, even before fresh data arrives or when every metric row is hidden.
         if showTotalSpend, layout.hasSpendCapableProvider {
@@ -96,6 +105,19 @@ struct DashboardContentView: View {
                 reorderLift: $reorderLift
             )
         }
+    }
+
+    /// Today's spend and tokens for the current Usage From scope (the rendered snapshots already are).
+    private var todayTotals: (spend: Double?, tokens: Int?) {
+        let key = DailyUsageAccumulator.dayKey(from: Date())
+        var spend = 0.0, tokens = 0, sawCost = false, sawDay = false
+        for snapshot in container.dataStore.snapshots.values {
+            guard let day = snapshot.usageHistory?.series.daily.first(where: { $0.date == key }) else { continue }
+            sawDay = true
+            tokens += day.totalTokens
+            if let cost = day.costUSD { spend += cost; sawCost = true }
+        }
+        return (sawCost ? spend : nil, sawDay ? tokens : nil)
     }
 
     private func scopeName(_ id: String) -> String {
