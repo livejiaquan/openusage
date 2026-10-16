@@ -2,8 +2,8 @@ import SwiftUI
 
 /// One metric as a row inside a provider's grouped list container. The provider icon is drawn once in the
 /// section header (not per row), so a row shows only the metric. Two layouts:
-/// - **Bounded** (`limit != nil`, meter row): a label line (right-aligned flame + run-out time when
-///   projected to run out before reset, or "~3% spare" when cutting it close), then a full-width
+/// - **Bounded** (`limit != nil`, meter row): a label line (right-aligned pace phrase: "on pace",
+///   "~3% spare", or "empty in ~1h 9m" when projected to run out before reset), then a full-width
 ///   capsule meter (color = pace verdict; in the amber state a tick splits the projected spare
 ///   cushion off the bar; hovering shows the verdict), then a primary text row ("50% left" ⟷ "Resets in 4d 17h").
 ///   Mirrors the original OpenUsage card.
@@ -122,16 +122,9 @@ struct WidgetRowView: View {
         }
     }
 
-    /// Label with the pace warning right-aligned on the same line — one slot, escalating with the
-    /// `MeterState`. Spent: a flame + "Limit reached",
-    /// the terminal state that outranks any pace projection. Running out: a flame + projected
-    /// run-out time, read as "Limit in 3h 45m" ⟷ "Limit today at 11:49 PM" (following the global
-    /// countdown/exact mode) — clicking the time flips the global mode like the reset label. Close
-    /// to limit: a quiet "~3% spare" — the cushion projected at reset. Healthy / level / no-data:
-    /// nothing unless "always show pacing" surfaces projection on blue. Only the flame carries
-    /// flame carries the severity color — tint on glass is reserved for the symbol while copy
-    /// stays secondary like the row's other supporting text; the bar below carries the color.
-    /// Hovering shows the pace projection at reset. The warning gets the space; the title truncates.
+    /// Label with the pace phrase right-aligned on the same line (`WidgetData.paceLabel`): "on pace",
+    /// "~3% spare", or — in the notice color — "empty in ~1h 9m" / "Limit reached". The bar below
+    /// carries the severity color. The phrase gets the space; the title truncates.
     private func boundedLabelRow(_ state: WidgetData.MeterState) -> some View {
         HStack(spacing: 6) {
             Text(data.title)
@@ -142,78 +135,22 @@ struct WidgetRowView: View {
         }
     }
 
-    /// The single escalating warning slot, switching exhaustively over the state so the copy can
-    /// never contradict the bar. The flame cases share one builder; the amber and (always-show-pacing)
-    /// blue cases are plain text.
+    /// The pace phrase. Warning and amber states keep their hover projection at reset; the calm
+    /// "on pace" stays plain.
     @ViewBuilder
     private func warning(_ state: WidgetData.MeterState) -> some View {
-        switch state {
-        case .spent:
-            flameWarning(text: "Limit reached", state: state, accessibility: "Limit reached")
-        case .runningOut(let eta, _):
-            // `eta == nil` is the float-edge case: the flame stands alone (the projection lives in
-            // the tooltip), rather than printing a misleading time. A shown time reads "Limit in 3h
-            // 45m" (or the exact "Limit today at …"), carrying its own verb and following the global
-            // countdown/exact mode, so — exactly like the reset label — clicking it flips that mode
-            // (lifted reorder previews pass no toggle and render it inert).
-            flameWarning(text: eta, state: state,
-                         accessibility: eta ?? "Will reach limit",
-                         action: eta == nil ? nil : onToggleResetDisplay)
-        case .closeToLimit(let spare, _):
+        if let pace = data.paceLabel(for: state) {
             Spacer(minLength: 8)
-            Text(spare)
+            let text = Text(pace.text)
                 .font(supportingFont)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(pace.isWarning ? Theme.notice : AnyShapeStyle(.secondary))
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
-                .hoverTooltip(state.tooltip)
-        case .healthy where data.alwaysShowPacing:
-            // "Always show pacing" surfaces the projection on the otherwise-silent on-track row: the
-            // same quiet secondary note as the amber case, but the cushion ("~33% left at reset")
-            // rather than the spare. No flame (blue isn't a warning) and no hover tooltip — the copy
-            // already *is* the projection the amber case hides in its tooltip.
-            if let projection = state.tooltip {
-                Spacer(minLength: 8)
-                Text(projection)
-                    .font(supportingFont)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
+            if case .healthy = state {
+                text
+            } else {
+                text.hoverTooltip(state.tooltip)
             }
-        case .noData, .healthy, .level:
-            EmptyView()
-        }
-    }
-
-    /// Flame icon + optional label text, carrying the state's projection tooltip — shared by the
-    /// spent and running-out cases. Only the flame is severity-tinted; the copy stays secondary
-    /// (tint on glass is reserved for the symbol). An optional `action` wraps the warning in a
-    /// plain button (the run-out time's countdown/exact toggle).
-    @ViewBuilder
-    private func flameWarning(text: String?, state: WidgetData.MeterState,
-                              accessibility: String, action: (() -> Void)? = nil) -> some View {
-        Spacer(minLength: 8)
-        let label = HStack(spacing: 3) {
-            Image(systemName: "flame.fill")
-                .font(.system(size: density.supportingPointSize - 1))
-                .foregroundStyle(severityColor(state.severity))
-                .accessibilityHidden(true) // the warning text alongside carries the message
-            if let text {
-                Text(text)
-                    .font(supportingFont)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-            }
-        }
-        .foregroundStyle(.secondary)
-        .hoverTooltip(state.tooltip)
-        .accessibilityLabel(accessibility)
-
-        if let action {
-            Button(action: action) { label }
-                .buttonStyle(.plain)
-        } else {
-            label
         }
     }
 
