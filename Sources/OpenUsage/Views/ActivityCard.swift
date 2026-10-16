@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// The top-of-dashboard live card: a headline (speed, today's spend, or today's tokens), a 30-minute
-/// stacked chart by provider or device, an optional run-out alert, and a collapse caret matching the
-/// provider cards. Collapsed, it is one line with a sparkline.
+/// stacked chart by provider or device, an optional run-out alert, and a caret that works like the
+/// provider cards': it sits right under the headline and the details open *below* it, so expanding and
+/// collapsing happen at the same spot. Collapsed, it is one line with a sparkline.
 struct ActivityCard: View {
     let live: LiveActivityView
     /// The first speed reading hasn't arrived yet (a cold launch scanning the logs).
@@ -25,10 +26,12 @@ struct ActivityCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             headlineRow
-            if !collapsed {
-                details.transition(.opacity)
-            }
             caret
+            if !collapsed {
+                details
+                    .padding(.bottom, 12)
+                    .transition(.opacity)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.top, 10)
@@ -51,6 +54,13 @@ struct ActivityCard: View {
             unitMenu.layoutPriority(1)
             Spacer(minLength: 6)
             if collapsed {
+                if alert != nil {
+                    // The run-out warning lives in the details; collapsed, a small mark says there is one.
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: density.supportingPointSize - 1))
+                        .foregroundStyle(Theme.notice)
+                        .accessibilityLabel("Run-out warning, expand to read")
+                }
                 StackedActivityChart(layers: layers)
                     .frame(minWidth: 40, maxWidth: 110)
                     .frame(height: 22)
@@ -64,7 +74,6 @@ struct ActivityCard: View {
         VStack(alignment: .leading, spacing: 6) {
             StackedActivityChart(layers: layers)
                 .frame(height: 44)
-                .padding(.top, 8)
             HStack(spacing: 6) {
                 Text("Last 30 min")
                     .font(.system(size: density.planBadgePointSize))

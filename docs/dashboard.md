@@ -20,7 +20,7 @@ The speed has three states: **Measuring…** while the logs are read for the fir
 
 Speed for this Mac comes from Claude Code and Codex logs as they are written, and is only measured while the panel is open (plus that one reading at launch). Remote devices update at each import, so their speed is a snapshot; a device that hasn't imported in 15 minutes, or whose last import failed, is shown as not live with how long ago it last updated. **Usage From** applies here too, and a provider turned off in Customize is left out of the card, just as it is left out of Total Spend.
 
-When a quota meter is on track to run out before it resets, the card adds one line under the provider name, like `Session runs out about 40m before it resets at this pace.` Only the soonest one is shown. Collapse the card with its chevron to keep just the speed on one line.
+When a quota meter is on track to run out before it resets, the card adds one line under the provider name, like `Session runs out about 40m before it resets at this pace.` Only the soonest one is shown. The chevron sits right under the headline, like the provider cards' caret, and the chart and legend open below it, so collapsing happens at the same spot; collapsed, the card keeps just the speed on one line (with a small orange mark when a warning is waiting inside).
 
 Claude and Codex headers also carry their own `● 982K/min` (with several accounts, on the card signed in at the default home), and a provider that is actively working gets a slow highlight across its meters. Both can be turned off in [Settings → Live Activity](settings.md#live-activity).
 

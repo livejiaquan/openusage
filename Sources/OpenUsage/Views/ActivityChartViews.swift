@@ -72,21 +72,27 @@ struct StackedActivityChart: View {
 struct QuietSegmentedControl: View {
     @Binding var selection: ActivityBreakdown
     @AppStorage(DensitySetting.key) private var density = DensitySetting.regular
+    @Environment(\.reduceAnimations) private var reduceAnimations
+    @Namespace private var thumb
 
     var body: some View {
         HStack(spacing: 2) {
             ForEach(ActivityBreakdown.allCases, id: \.self) { option in
                 Button {
-                    selection = option
+                    // The thumb slides to the new option (matched geometry), like a native segmented control.
+                    withAnimation(reduceAnimations ? nil : Motion.spring) { selection = option }
                 } label: {
                     Text(option.rawValue)
-                        .font(.system(size: density.planBadgePointSize, weight: selection == option ? .medium : .regular))
+                        // One weight for both states, so the labels don't change width under the sliding thumb.
+                        .font(.system(size: density.planBadgePointSize, weight: .medium))
                         .foregroundStyle(selection == option ? .primary : .secondary)
                         .padding(.horizontal, 8)
-                        .frame(minHeight: 22)
+                        .frame(minHeight: 24)
                         .background {
                             if selection == option {
-                                RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.12))
+                                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                    .fill(Color.primary.opacity(0.12))
+                                    .matchedGeometryEffect(id: "thumb", in: thumb)
                             }
                         }
                         .contentShape(Rectangle())

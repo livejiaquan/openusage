@@ -97,19 +97,22 @@ struct ProviderSectionHeader: View {
                     .accessibilityLabel(warning)
             }
             Spacer(minLength: 8)
-            if let liveRate, !(isHovered && onCopyScreenshot != nil) {
-                LiveRateChip(providerName: provider.displayName, rate: liveRate)
-            }
-            if let onCopyScreenshot {
-                CopyFeedbackButton(
-                    accessibilityLabel: "Copy \(provider.displayName) Screenshot",
-                    isRevealed: isHovered,
-                    action: onCopyScreenshot
-                )
+            // One trailing slot: the live chip sits flush right (lined up with Usage From), and the
+            // hover-revealed copy button takes the same spot on hover. Stacking them keeps the header
+            // height steady and stops the invisible button from pushing the chip inward.
+            ZStack(alignment: .trailing) {
+                if let onCopyScreenshot {
+                    CopyFeedbackButton(
+                        accessibilityLabel: "Copy \(provider.displayName) Screenshot",
+                        isRevealed: isHovered,
+                        action: onCopyScreenshot
+                    )
+                }
+                if let liveRate, !(isHovered && onCopyScreenshot != nil) {
+                    LiveRateChip(providerName: provider.displayName, rate: liveRate)
+                }
             }
         }
-        .padding(.leading, 2)
-        .padding(.trailing, 4)
         .padding(.vertical, 2)
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
