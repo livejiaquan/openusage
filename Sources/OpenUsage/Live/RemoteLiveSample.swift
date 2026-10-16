@@ -9,11 +9,21 @@ struct RemoteLiveSample: Equatable, Sendable {
 
     let deviceID: String
     let importedAt: Date
-    let buckets: LiveRateBuckets
+    /// Kept per provider so a single-device scope can still fill the Claude and Codex header chips.
+    let familyBuckets: [LiveFamily: LiveRateBuckets]
     var lastFailureAt: Date?
 
+    var buckets: LiveRateBuckets { LiveRateBuckets.merged(Array(familyBuckets.values), now: importedAt) }
     var ratePerMinute: Double { buckets.ratePerMinute(now: importedAt) }
     var history: [Double] { buckets.history(now: importedAt) }
+
+    func ratePerMinute(_ family: LiveFamily) -> Double {
+        familyBuckets[family]?.ratePerMinute(now: importedAt) ?? 0
+    }
+
+    func history(_ family: LiveFamily) -> [Double] {
+        (familyBuckets[family] ?? LiveRateBuckets(now: importedAt)).history(now: importedAt)
+    }
 
     func isAvailable(now: Date) -> Bool {
         guard now.timeIntervalSince(importedAt) <= Self.staleAfter else { return false }
@@ -24,13 +34,15 @@ struct RemoteLiveSample: Equatable, Sendable {
     /// Buckets the exporter's events the same way the local tail does: Codex by event total, Claude by
     /// total tokens after the history scanner's dedup.
     static func from(events: RemoteUsageEvents, deviceID: String, importedAt: Date) -> RemoteLiveSample {
-        var buckets = LiveRateBuckets(now: importedAt)
+        var codex = LiveRateBuckets(now: importedAt)
         for event in events.codex {
-            buckets.add(tokens: event.total, at: event.timestamp, now: importedAt)
+            codex.add(tokens: event.total, at: event.timestamp, now: importedAt)
         }
+        var claude = LiveRateBuckets(now: importedAt)
         for entry in ClaudeLogUsageScanner.dedup(events.claude) {
-            buckets.add(tokens: entry.tokens.totalTokens, at: entry.timestamp, now: importedAt)
+            claude.add(tokens: entry.tokens.totalTokens, at: entry.timestamp, now: importedAt)
         }
-        return RemoteLiveSample(deviceID: deviceID, importedAt: importedAt, buckets: buckets)
+        return RemoteLiveSample(deviceID: deviceID, importedAt: importedAt,
+                                familyBuckets: [.claude: claude, .codex: codex])
     }
 }

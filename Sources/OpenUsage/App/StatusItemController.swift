@@ -315,6 +315,7 @@ final class StatusItemController: NSObject {
         // `TimelineView` clocks in time for the first displayed frame. Read by the SwiftUI egg via
         // `\.popoverIsVisible`; a closed popover keeps the loops unmounted, so a left-on egg costs no CPU.
         container.transparency.setPopoverShown(true)
+        container.liveActivity.setVisible(true)
 
         // Lay the content out first so the panel opens at the right size (no first-frame flash).
         hostingController.view.layoutSubtreeIfNeeded()
@@ -349,6 +350,7 @@ final class StatusItemController: NSObject {
         // clocks and stop ticking — the whole point of the gate (no CPU while the egg is left on but the
         // popover is hidden). This is the authoritative hide signal, flipped synchronously with `orderOut`.
         container.transparency.setPopoverShown(false)
+        container.liveActivity.setVisible(false)
         panel.orderOut(nil)
         outsideClickMonitor.stop()
         statusItem.button?.highlight(false)

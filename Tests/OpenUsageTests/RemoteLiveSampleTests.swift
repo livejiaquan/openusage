@@ -28,6 +28,8 @@ final class RemoteLiveSampleTests: XCTestCase {
         let events = RemoteUsageEvents(schema: SSHRemoteUsageClient.schema, codex: [], claude: [entry, entry])
         let sample = RemoteLiveSample.from(events: events, deviceID: "ssh-lab", importedAt: importedAt)
         XCTAssertEqual(sample.ratePerMinute, 100, accuracy: 0.001)
+        XCTAssertEqual(sample.ratePerMinute(.claude), 100, accuracy: 0.001)
+        XCTAssertEqual(sample.ratePerMinute(.codex), 0, accuracy: 0.001)
     }
 
     func testSampleGoesStaleAfterFifteenMinutes() {

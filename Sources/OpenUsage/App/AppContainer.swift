@@ -14,6 +14,8 @@ final class AppContainer {
     let iCloudSync: ICloudUsageSyncStore
     /// Pulls usage metadata from user-added SSH devices and keeps only daily summaries here.
     let remoteDevices: RemoteUsageDeviceStore
+    /// Live token speed (this Mac's log tails + remote import samples); runs only while the panel shows.
+    let liveActivity: LiveActivityStore
     /// Single source of truth for which providers the user has turned off. Both stores consult it (via
     /// injected closures) and the Customize provider list drives it.
     let enablement: ProviderEnablementStore
@@ -101,6 +103,17 @@ final class AppContainer {
         )
         let iCloudSync = ICloudUsageSyncStore(dataStore: dataStore)
         let remoteDevices = RemoteUsageDeviceStore(dataStore: dataStore)
+        // Default-home scanners used only to list recently written logs for the live tails.
+        let claudeLiveScanner = ClaudeLogUsageScanner()
+        let codexLiveScanner = CodexLogUsageScanner()
+        let liveActivity = LiveActivityStore(
+            tails: [
+                .claude: LiveLogTail(family: .claude) { await claudeLiveScanner.liveCandidateFiles(modifiedSince: $0) },
+                .codex: LiveLogTail(family: .codex) { await codexLiveScanner.liveCandidateFiles(modifiedSince: $0) },
+            ],
+            watchedRoots: LiveActivityStore.defaultWatchedRoots(),
+            remoteDevices: remoteDevices
+        )
         // Re-enabling a provider should fetch it promptly, so clear any leftover failure backoff before
         // the enablement wake refreshes. `weak` breaks the cycle (dataStore already captures enablement).
         enablement.onProviderEnabled = { [weak dataStore] id in dataStore?.clearFailureBackoff(for: id) }
@@ -134,6 +147,7 @@ final class AppContainer {
         self.dataStore = dataStore
         self.iCloudSync = iCloudSync
         self.remoteDevices = remoteDevices
+        self.liveActivity = liveActivity
 
         // The resets popover's claim service, sharing the Codex provider's credential loading and HTTP
         // client so the claim's auth can't drift from the provider's. A successful claim forces a Codex
