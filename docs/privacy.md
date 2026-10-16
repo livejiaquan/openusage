@@ -81,6 +81,10 @@ analytics toggle controls extra PostHog events, not daily activity or crash repo
 - Counts are rolled up locally and sent as daily summaries, so the app's normal 5-minute refresh never turns into a flood of network calls.
 - Your analytics choice and the anonymous ID are stored separately from the rest of the app's settings, so settings migrations and updates do not re-enable extra analytics or change your ID.
 
+## Live activity
+
+The Activity card's speed for this Mac comes from reading new lines added to Claude Code and Codex log files on this Mac, and only while the panel is open. Nothing from those logs is sent anywhere. Remote devices' speed comes from the history they already send at import.
+
 ## Turning extra analytics off
 
 Open **Settings → Privacy** and switch **Help Make OpenUsage Better**

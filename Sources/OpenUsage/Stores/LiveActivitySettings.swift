@@ -13,6 +13,17 @@ enum LiveActivitySettings {
     /// Every key, for Reset All Settings.
     static let allKeys = [cardKey, headerSpeedKey, animatedMetersKey, edgeGlowKey, deviceBreakdownKey,
                           collapsedKey, headlineKey]
+
+    /// The defaults the `@AppStorage` properties declare, kept here so tests and docs agree with them.
+    static let defaults: [String: any Sendable] = [
+        cardKey: true, headerSpeedKey: true, animatedMetersKey: true, edgeGlowKey: false,
+        deviceBreakdownKey: true, collapsedKey: false, headlineKey: ActivityHeadline.speed.rawValue,
+    ]
+
+    /// Reset All Settings: removing a key restores its `@AppStorage` default.
+    static func reset(in store: UserDefaults = .standard) {
+        for key in allKeys { store.removeObject(forKey: key) }
+    }
 }
 
 enum ActivityHeadline: String, CaseIterable {

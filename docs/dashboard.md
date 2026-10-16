@@ -14,6 +14,16 @@ When you expand a card, the tucked-away metrics open below the caret as a single
 
 A provider card can also show **quick-link buttons** pinned at the bottom of its expanded section — Status, Console, Dashboard, and the like — that open the provider's own pages in your default browser. They're part of the expander, so collapsing the caret hides them along with the tucked-away metrics. Buttons lay out up to three across, wrapping to a second row when there are more.
 
+## Activity
+
+The card at the top shows how fast tokens are being used right now. The big number defaults to tokens per minute over the last 5 minutes; click it to switch to Spent Today or Tokens Today instead. Below it a small stacked chart covers the last 30 minutes, one band per provider (or per device, with the **Providers / Devices** switch). The dot next to the number breathes while anything is in use and goes still when nothing is.
+
+Speed for this Mac comes from Claude Code and Codex logs as they are written, and is only measured while the panel is open. Remote devices update at each import, so their speed is a snapshot; a device that hasn't imported in 15 minutes, or whose last import failed, is shown as not live with how long ago it last updated. **Usage From** applies here too.
+
+When a quota meter is on track to run out before it resets, the card adds one line under the provider name, like `Session runs out about 40m before it resets at this pace.` Only the soonest one is shown. Collapse the card with its chevron to keep just the speed on one line.
+
+Claude and Codex headers also carry their own `● 982K/min`, and a provider that is actively working gets a slow highlight across its meters. Both can be turned off in [Settings → Live Activity](settings.md#live-activity).
+
 ## Total Spend
 
 When any enabled provider tracks daily spend (Claude, Codex, Cursor, Grok, or OpenCode), a card sits above the provider sections. The title is a pull-down menu for **Cost**, **Cost/MTok**, or **Tokens** (Cost is the default; the choice sticks across restarts). A capsule switcher flips the period between **Today**, **Yesterday**, and **30 Days**. The ring, center total, and ranked legend follow the selected metric:
@@ -41,11 +51,15 @@ The ring center is always two short lines — a compact number on top and a quie
 
 For Claude, Codex, Cursor, Grok, and OpenCode spend rows, the value gently highlights when you point at it, signaling it's interactive; hovering it for a moment opens a small model breakdown for that period: a ranked list of models, each showing its name and spend on one line, its share percentage and tokens on the next, and a thin share bar. Cursor groups its per-thinking-effort export slugs (like `claude-opus-4-8-thinking-max`) under the base model. Long tails fold into **Other** — anything past the top named models or under 5% of the period. Models no pricing source can price don't appear here (or in the row's totals) at all; the row's warning triangle names them instead (see [Pricing](pricing.md)).
 
-**Usage Trend** (Claude, Codex, Cursor, Grok, and OpenCode) is a small bar chart of the last 30 days of token usage — one bar per day, drawn from the same source as that provider's spend rows (local logs for Claude, Codex, Grok, and OpenCode; Cursor's usage export for Cursor). **Hover it** for the peak day, the date range, and the source. It's on by default; turn it off or reorder it from Customize like any other metric. It can't be starred for the menu bar — the strip shows single values, not a chart.
+**Last 14 Days** (Claude, Codex, Cursor, Grok, and OpenCode; listed as Usage Trend in Customize) is a small bar chart of the last two weeks of token usage with the average spend per day — one bar per day, drawn from the same source as that provider's spend rows (local logs for Claude, Codex, Grok, and OpenCode; Cursor's usage export for Cursor). **Hover it** for the peak day, the date range, and the source. It's on by default; turn it off or reorder it from Customize like any other metric. It can't be starred for the menu bar — the strip shows single values, not a chart.
 
 With [iCloud Sync](icloud-sync.md) on, the machine-local providers' spend rows, trends, warnings, and
 model breakdowns are rebuilt from all synced Macs. Cursor stays unchanged because its export is already
 account-wide. Quotas, plans, balances, and provider errors always describe this Mac's refresh.
+
+**Top Models Today** lists the models with the most tokens today, with each one's share. It's on by default and sits behind the provider's caret.
+
+On demand, Today, Yesterday, and Last 30 Days share one **Usage** row with three columns. **Rate Limit Resets** shows one line per reset, soonest expiry first, with a countdown that turns orange when it's close; only two show until **Show N More**. For Codex, **Use** on a line opens the reset confirmation.
 
 Rows with a reset date tick every 30 seconds, so countdowns and pace stay live between refreshes.
 

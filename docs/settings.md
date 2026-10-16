@@ -24,6 +24,18 @@ time; it also reports unavailable iCloud, loading, write, and malformed-file sta
 
 Add an SSH-accessible Linux, Windows, Windows + WSL, or Mac source for Claude Code and Codex history. Each row shows a status dot, the connection, and one status line with how long ago it last updated, plus a refresh button. Failed imports keep their saved history visible; **Details** shows the error. Providers that can't be matched to one of this Mac's accounts are named on the row. Edit and Remove are in the device's actions menu. The editor asks for the system first, includes a **Before You Start** checklist, reports invalid fields inline, and keeps the optional Test Connection separate from history import. The dashboard's **Usage From** menu switches between all devices, this Mac, and each imported device. See [Remote Devices](remote-devices.md) for setup, data handling, and duplicate-source guidance.
 
+## Live Activity
+
+Switches for the live parts of the dashboard. All start on except Edge Glow.
+
+- **Activity Card** — the card at the top of the dashboard with live speed, today's spend, and the per-provider or per-device breakdown.
+- **Speed on Provider Headers** — the small `● 982K/min` next to Claude and Codex.
+- **Animated Meters** — a slow, soft highlight that drifts across a meter while that provider is working. It never runs while the panel is closed or with Reduce Animations on.
+- **Edge Glow** — a faint glow at the end of an animated meter. Off by default; only available while Animated Meters is on.
+- **Device Breakdown** — lets the Activity card show one band per device instead of per provider.
+
+With every switch off, the dashboard looks the way it did before the live features. **Reset All Settings** turns these back to their defaults.
+
 ## Appearance
 
 | Setting | Options | What it does |

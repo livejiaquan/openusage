@@ -57,6 +57,7 @@ struct SettingsScreen: View {
             RemoteDevicesSettingsSection(store: container.remoteDevices)
                 // Settings stays mounted while hidden. A new visit starts at the device list.
                 .id(layout.screen == .settings)
+            LiveActivitySettingsSection()
             appearanceSection
             usageDisplaySection
             notificationsSection

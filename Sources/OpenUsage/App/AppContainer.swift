@@ -288,6 +288,7 @@ final class AppContainer {
         ] {
             UserDefaults.standard.removeObject(forKey: key)
         }
+        LiveActivitySettings.reset()
         KeyboardShortcuts.reset(.togglePopover)
         AppearanceSetting.applyCurrent()
         AppLog.reloadLevel()
