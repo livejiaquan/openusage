@@ -33,6 +33,20 @@ final class PopoverTransparencyStoreTests: XCTestCase {
         XCTAssertFalse(PopoverTransparencyStore(defaults: defaults).increaseTransparency)
     }
 
+    func testTokamakRegisteredDefaultIsOnAndResetReturnsToIt() {
+        let defaults = makeDefaults("tokamak-default")
+        let store = PopoverTransparencyStore(defaults: defaults, defaultIncreaseTransparency: true)
+        XCTAssertTrue(store.increaseTransparency)
+
+        store.increaseTransparency = false
+        XCTAssertFalse(PopoverTransparencyStore(defaults: defaults, defaultIncreaseTransparency: true).increaseTransparency)
+
+        store.resetToDefaults()
+        XCTAssertTrue(store.increaseTransparency)
+        XCTAssertNil(defaults.object(forKey: PopoverTransparencyStore.key), "reset leaves the preference unset")
+        XCTAssertTrue(PopoverTransparencyStore(defaults: defaults, defaultIncreaseTransparency: true).increaseTransparency)
+    }
+
     func testEggStateIsNeverPersisted() {
         let defaults = makeDefaults("ephemeral")
         let store = PopoverTransparencyStore(defaults: defaults)

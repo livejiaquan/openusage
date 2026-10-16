@@ -207,7 +207,8 @@ final class AppContainer {
             telemetry?.record(providerID: providerID, outcome: outcome, category: category, manual: manual)
         }
         self.telemetry = telemetry
-        self.transparency = PopoverTransparencyStore()
+        // Tokamak opens with the frosted panel until the user turns Increase Transparency off.
+        self.transparency = PopoverTransparencyStore(defaultIncreaseTransparency: true)
         self.privacy = MenuBarPrivacyStore()
         self.localAPI = LocalUsageServer(state: { [layout, enablement, dataStore] in
             LocalUsageAPI.State(

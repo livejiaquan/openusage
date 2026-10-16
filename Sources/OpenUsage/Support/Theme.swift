@@ -104,6 +104,7 @@ extension View {
 /// so cards still read as grouped boxes over the desktop.
 private struct CardSurfaceModifier: ViewModifier {
     @Environment(\.popoverSurfaceTreatment) private var treatment
+    @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
         content.background {
@@ -115,8 +116,9 @@ private struct CardSurfaceModifier: ViewModifier {
             case .translucent:
                 // The AppKit backdrop already applies the system blur. A stable translucent surface here
                 // keeps text legible without stacking another live material pass under every card.
+                // Tokamak: a light frosted lift so the desktop reads through the card, not a flat gray slab.
                 Theme.cardShape
-                    .fill(Theme.traySurface.opacity(0.55))
+                    .fill(Color.white.opacity(colorScheme == .dark ? 0.07 : 0.55))
                     .overlay { Theme.cardShape.fill(Theme.cardFill) }
             }
         }

@@ -43,15 +43,19 @@ final class PopoverTransparencyStore {
     private(set) var increaseContrast: Bool
 
     @ObservationIgnored private let defaults: UserDefaults
+    /// Used while the preference is unset. Tokamak passes `true` (frosted panel by default).
+    @ObservationIgnored private let defaultIncreaseTransparency: Bool
     @ObservationIgnored private var accessibilityObservation: Task<Void, Never>?
 
     init(
         defaults: UserDefaults = .standard,
         reduceTransparency: Bool = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency,
-        increaseContrast: Bool = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+        increaseContrast: Bool = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast,
+        defaultIncreaseTransparency: Bool = false
     ) {
         self.defaults = defaults
-        self.increaseTransparency = defaults.bool(forKey: Self.key)
+        self.defaultIncreaseTransparency = defaultIncreaseTransparency
+        self.increaseTransparency = defaults.object(forKey: Self.key) as? Bool ?? defaultIncreaseTransparency
         // The flags default to the live `NSWorkspace` values (production) but are injectable so tests can
         // pin them and exercise the accessibility clamp deterministically, independent of the test host.
         self.reduceTransparency = reduceTransparency
@@ -88,12 +92,15 @@ final class PopoverTransparencyStore {
         AppLog.info(.statusItem, "Too-much-transparency egg \(active ? "enabled" : "disabled")")
     }
 
-    /// Restores the transparency preference to its default (off) and exits the easter egg — the
+    /// Restores the transparency preference to its default (Tokamak: on) and exits the easter egg — the
     /// Settings "Reset All Settings" path. Without the egg exit, a reset during Party/Drunk Mode
     /// would keep overriding the freshly-reset preference with the party look.
     func resetToDefaults() {
         setSecretCode(false)
-        increaseTransparency = false
+        // Back to this build's default (Tokamak: on) and leave the preference unset, like a fresh install.
+        defaults.removeObject(forKey: Self.key)
+        increaseTransparency = defaultIncreaseTransparency
+        defaults.removeObject(forKey: Self.key)
     }
 
     /// Flips the on-screen flag from `StatusItemController`'s show/hide chokepoints. Guards on change so a
