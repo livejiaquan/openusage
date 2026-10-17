@@ -19,7 +19,8 @@ struct UsageStatRow: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, density.barRowPadding)
+        .padding(.top, OnDemandGroupRhythm.top(density, divided: showsTopDivider))
+        .padding(.bottom, OnDemandGroupRhythm.bottom(density))
         .overlay(alignment: .top) {
             if showsTopDivider { OnDemandGroupDivider() }
         }
@@ -98,9 +99,9 @@ struct TopModelsRow: View {
             OnDemandGroupHeader(title: data.title)
             compositionBar
                 .frame(height: 8)
-                .padding(.top, 2)
+                .padding(.top, 1)
                 .padding(.bottom, 8)
-            VStack(spacing: 0) {
+            VStack(spacing: 4) {
                 ForEach(Array(entries.enumerated()), id: \.element.model) { index, entry in
                     legendRow(entry, index: index)
                 }
@@ -109,17 +110,22 @@ struct TopModelsRow: View {
         .accessibilityElement(children: .contain)
     }
 
+    /// Segments laid out at exact offsets (2 pt apart) over the track, so shares that add up to 100% fill
+    /// it edge to edge with no sliver of track left at the end.
     private var compositionBar: some View {
         GeometryReader { proxy in
             let gap: CGFloat = 2
             let usable = max(0, proxy.size.width - gap * CGFloat(max(entries.count - 1, 0)))
-            HStack(spacing: gap) {
-                ForEach(Array(entries.enumerated()), id: \.element.model) { index, entry in
-                    Rectangle().fill(shade(index)).frame(width: max(2, usable * entry.share))
+            let widths = entries.map { max(2, usable * $0.share) }
+            ZStack(alignment: .leading) {
+                Color.primary.opacity(0.1)
+                ForEach(Array(entries.enumerated()), id: \.element.model) { index, _ in
+                    Rectangle()
+                        .fill(shade(index))
+                        .frame(width: widths[index])
+                        .offset(x: widths[..<index].reduce(0, +) + gap * CGFloat(index))
                 }
-                Spacer(minLength: 0)
             }
-            .background(Color.primary.opacity(0.1))
             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         }
         .accessibilityHidden(true)
@@ -138,9 +144,19 @@ struct TopModelsRow: View {
         }
         .font(.system(size: density.supportingPointSize + 1))
         .monospacedDigit()
-        .frame(minHeight: 21)
         .accessibilityElement(children: .combine)
     }
+}
+
+/// One vertical rhythm for On Demand groups, so the hairline between two groups sits exactly halfway:
+/// every group ends `bottom` below its last line, and a divided group starts the same distance under
+/// the line. The first group under the caret (no line) sits closer, since the caret already separates it.
+enum OnDemandGroupRhythm {
+    static func top(_ density: DensitySetting, divided: Bool) -> CGFloat {
+        divided ? density.barRowPadding : density.textRowPadding
+    }
+
+    static func bottom(_ density: DensitySetting) -> CGFloat { density.barRowPadding }
 }
 
 /// The hairline between On Demand groups, inset to the card's content edges.

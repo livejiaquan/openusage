@@ -30,7 +30,7 @@ struct ResetListRows: View {
 
     private func rows(now: Date) -> some View {
         let layout = ResetListLayout.visible(total: expiries.count, expanded: expanded)
-        return VStack(alignment: .leading, spacing: 0) {
+        return VStack(alignment: .leading, spacing: claim != nil ? 0 : 4) {
             ForEach(Array(expiries.prefix(layout.shown).enumerated()), id: \.offset) { index, expiry in
                 row(number: index + 1, expiry: expiry, now: now)
             }
@@ -81,7 +81,9 @@ struct ResetListRows: View {
             }
         }
         .font(.system(size: density.supportingPointSize + 1))
-        .frame(minHeight: 24)
+        // Only rows with a Use button need its 24 pt target; read-only rows keep the text's own height
+        // so the title-to-first-row gap matches the other groups.
+        .frame(minHeight: claim != nil ? 24 : nil)
         .accessibilityElement(children: .contain)
     }
 }

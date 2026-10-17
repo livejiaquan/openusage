@@ -83,13 +83,20 @@ struct WidgetRowView: View {
         }
     }
 
+    /// Resets and Top Models render as On Demand groups (see `OnDemandGroupRhythm`).
+    private var isOnDemandGroup: Bool {
+        data.showsTopModels || (data.showsResetExpiries && onToggleResetDisplay != nil)
+    }
+
     private var topPadding: CGFloat {
+        if isOnDemandGroup { return OnDemandGroupRhythm.top(density, divided: showsTopDivider) }
         if data.isBounded { return density.barRowPadding }
         return condensedTop ? density.condensedTextRowTopPadding : density.textRowPadding
     }
 
     private var bottomPadding: CGFloat {
-        data.isBounded ? density.barRowPadding : density.textRowPadding
+        if isOnDemandGroup { return OnDemandGroupRhythm.bottom(density) }
+        return data.isBounded ? density.barRowPadding : density.textRowPadding
     }
 
     @ViewBuilder
