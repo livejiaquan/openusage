@@ -152,8 +152,11 @@ struct TopModelsRow: View {
 /// every group ends `bottom` below its last line, and a divided group starts the same distance under
 /// the line. The first group under the caret (no line) sits closer, since the caret already separates it.
 enum OnDemandGroupRhythm {
+    /// Under a line, 2 pt less than the gap above it: a title's text box carries ~3 pt of space over its
+    /// capitals that the line above a group's last row doesn't, so equal boxes read lopsided (measured
+    /// 11 pt above vs 13.5 pt below); this optical correction makes the ink gaps match.
     static func top(_ density: DensitySetting, divided: Bool) -> CGFloat {
-        divided ? density.barRowPadding : density.textRowPadding
+        divided ? density.barRowPadding - 2 : density.textRowPadding
     }
 
     static func bottom(_ density: DensitySetting) -> CGFloat { density.barRowPadding }
