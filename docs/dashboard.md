@@ -57,9 +57,9 @@ With [iCloud Sync](icloud-sync.md) on, the machine-local providers' spend rows, 
 model breakdowns are rebuilt from all synced Macs. Cursor stays unchanged because its export is already
 account-wide. Quotas, plans, balances, and provider errors always describe this Mac's refresh.
 
-**Top Models Today** lists the models with the most tokens today, with each one's share. It's on by default and sits behind the provider's caret.
+**Top Models Today** shows today's top models as one bar split by each model's share of the day's cost, with a legend underneath (share and cost lined up on the right). It's on by default and sits behind the provider's caret.
 
-On demand, Today, Yesterday, and Last 30 Days share one **Usage** row with three columns. Each column keeps the amber warning when a model couldn't be priced, and clicking a column opens that period's model breakdown. **Rate Limit Resets** shows one line per reset, soonest expiry first, with a countdown that turns orange when it's close; only two show until **Show N More**. For Codex, **Use** on a line goes straight to that reset's confirmation ("Use the reset expiring Oct 23?"); nothing is spent until you press **Reset** there. Claude's resets are shown read-only, since Anthropic offers no way to redeem them from outside its own apps.
+On demand, Today, Yesterday, and Last 30 Days share one **Usage** row with three columns. Each column keeps the amber warning when a model couldn't be priced, and clicking a column opens that period's model breakdown. The On Demand groups (Rate Limit Resets, Top Models Today, Usage) each have a quiet title and are separated by a thin line. **Rate Limit Resets** shows one line per reset, soonest expiry first, with a countdown that turns orange when it's close; only two show until **Show N More**. For Codex, **Use** on a line goes straight to that reset's confirmation ("Use the reset expiring Oct 23?"); nothing is spent until you press **Reset** there. Claude's resets are shown read-only, since Anthropic offers no way to redeem them from outside its own apps.
 
 Rows with a reset date tick every 30 seconds, so countdowns and pace stay live between refreshes.
 

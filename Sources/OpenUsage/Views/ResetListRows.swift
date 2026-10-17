@@ -14,14 +14,8 @@ struct ResetListRows: View {
     private var expiries: [Date] { data.expiriesAt.sorted() }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: density.rowInnerSpacing + 2) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(data.title).font(.system(size: density.labelPointSize, weight: .semibold))
-                Spacer(minLength: 8)
-                Text("\(data.resetCreditCount) available")
-                    .font(.system(size: density.supportingPointSize))
-                    .foregroundStyle(.secondary)
-            }
+        VStack(alignment: .leading, spacing: 0) {
+            OnDemandGroupHeader(title: data.title, trailing: "\(data.resetCreditCount) available")
             if expiries.isEmpty {
                 Text(data.resetCreditCount == 0 ? "No resets available" : "Expiry times unavailable")
                     .font(.system(size: density.supportingPointSize))
@@ -36,7 +30,7 @@ struct ResetListRows: View {
 
     private func rows(now: Date) -> some View {
         let layout = ResetListLayout.visible(total: expiries.count, expanded: expanded)
-        return VStack(alignment: .leading, spacing: 4) {
+        return VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(expiries.prefix(layout.shown).enumerated()), id: \.offset) { index, expiry in
                 row(number: index + 1, expiry: expiry, now: now)
             }
@@ -50,7 +44,6 @@ struct ResetListRows: View {
                     }
                     .font(.system(size: density.supportingPointSize))
                     .foregroundStyle(.secondary)
-                    .padding(.leading, 26)
                     .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
                     .contentShape(Rectangle())
                 }
@@ -60,11 +53,9 @@ struct ResetListRows: View {
     }
 
     private func row(number: Int, expiry: Date, now: Date) -> some View {
+        // Rows are already in expiry order, so no number badge: the date leads, the countdown and Use
+        // sit on the shared right edge.
         HStack(spacing: 8) {
-            Text("\(number)")
-                .font(.system(size: 10.5, weight: .semibold))
-                .frame(width: 18, height: 18)
-                .background(Circle().fill(Color.primary.opacity(0.1)))
             Text("Expires \(Formatters.monthDayLabel(expiry))")
             Spacer(minLength: 4)
             Text(ResetListLayout.countdown(to: expiry, now: now))
@@ -75,7 +66,7 @@ struct ResetListRows: View {
                     .buttonStyle(.plain)
                     .font(.system(size: density.planBadgePointSize, weight: .medium))
                     .padding(.horizontal, 10)
-                    .frame(minHeight: 24)
+                    .frame(minHeight: 22)
                     .background(Capsule().fill(Color.primary.opacity(0.09)))
                     .contentShape(Capsule())
                     .accessibilityLabel("Use reset \(number), expires \(Formatters.monthDayLabel(expiry))")
@@ -89,7 +80,8 @@ struct ResetListRows: View {
                     }
             }
         }
-        .font(.system(size: density.supportingPointSize))
+        .font(.system(size: density.supportingPointSize + 1))
+        .frame(minHeight: 24)
         .accessibilityElement(children: .contain)
     }
 }

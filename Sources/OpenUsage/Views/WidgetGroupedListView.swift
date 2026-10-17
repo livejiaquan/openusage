@@ -43,7 +43,9 @@ struct WidgetGroupedListView: View {
     /// Runs of two or more adjacent Today / Yesterday / Last 30 Days rows (never across the caret or a
     /// links row) render as one Usage row: `heads` maps a run's first metric to its columns, and the
     /// run's later metrics are `members`, which render nothing.
-    private static func usageStatRuns(_ rows: [DashboardMetricCardRow]) -> (heads: [String: [WidgetData]], members: Set<String>) {
+    private typealias UsageStatRuns = (heads: [String: [WidgetData]], members: Set<String>)
+
+    private static func usageStatRuns(_ rows: [DashboardMetricCardRow]) -> UsageStatRuns {
         var dataByID: [String: WidgetData] = [:]
         let ids = rows.map { row -> String in
             guard case .metric(let entry) = row else { return "separator.\(row.id)" }
@@ -182,6 +184,7 @@ struct WidgetGroupedListView: View {
             links: []
         )
         let usageRuns = Self.usageStatRuns(cardRows)
+        let groupDividers = groupDividerIDs(cardRows, usageRuns: usageRuns)
         // Same card builder the lifted preview uses, so the floating chip can't drift from the live card.
         return DashboardMetricCard {
             // One stable list keeps the drag-owning metric row alive when it crosses the caret boundary.
@@ -190,15 +193,15 @@ struct WidgetGroupedListView: View {
             ForEach(cardRows) { cardRow in
                 switch cardRow {
                 case .metric(let entry):
-                    if usageRuns.members.contains(entry.descriptor.id)
-                        || (entry.data.showsTopModels && TopModels.entries(from: entry.data.modelBreakdown).isEmpty) {
+                    if isHidden(entry, usageRuns: usageRuns) {
                         EmptyView()
                     } else if let columns = usageRuns.heads[entry.descriptor.id] {
-                        UsageStatRow(columns: columns)
+                        UsageStatRow(columns: columns, showsTopDivider: groupDividers.contains(entry.descriptor.id))
                             .contextMenu { rowMenu(entry.descriptor, providerID: providerID) }
                     } else {
                         row(entry.descriptor, data: entry.data, in: providerID,
-                            condensedTop: condensedIDs.contains(entry.descriptor.id))
+                            condensedTop: condensedIDs.contains(entry.descriptor.id),
+                            showsTopDivider: groupDividers.contains(entry.descriptor.id))
                     }
                 case .links(let links):
                     ProviderLinksView(links: links)
@@ -278,8 +281,33 @@ struct WidgetGroupedListView: View {
         return Set(offsets.map { rows[$0].descriptor.id })
     }
 
+    /// A row folded into a Usage group, or a Top Models row with nothing to show.
+    private func isHidden(_ row: ResolvedRow, usageRuns: UsageStatRuns) -> Bool {
+        usageRuns.members.contains(row.descriptor.id)
+            || (row.data.showsTopModels && TopModels.entries(from: row.data.modelBreakdown).isEmpty)
+    }
+
+    /// On Demand groups (resets, top models, usage) that sit under another visible row get a hairline;
+    /// the first one under the caret doesn't (the caret already separates it).
+    private func groupDividerIDs(_ rows: [DashboardMetricCardRow], usageRuns: UsageStatRuns) -> Set<String> {
+        var ids: Set<String> = []
+        var previousIsRow = false
+        for cardRow in rows {
+            guard case .metric(let row) = cardRow else {
+                previousIsRow = false
+                continue
+            }
+            if isHidden(row, usageRuns: usageRuns) { continue }
+            let isGroup = row.data.showsTopModels || row.data.showsResetExpiries
+                || usageRuns.heads[row.descriptor.id] != nil
+            if isGroup, previousIsRow { ids.insert(row.descriptor.id) }
+            previousIsRow = true
+        }
+        return ids
+    }
+
     private func row(_ descriptor: WidgetDescriptor, data: WidgetData, in providerID: String,
-                     condensedTop: Bool) -> some View {
+                     condensedTop: Bool, showsTopDivider: Bool = false) -> some View {
         return WidgetRowView(
             data: data,
             onToggleResetDisplay: { dataStore.resetDisplayMode.toggle() },
@@ -287,6 +315,7 @@ struct WidgetGroupedListView: View {
             condensedTop: condensedTop,
             liveSweepFamily: animatedMetersEnabled && data.title.hasPrefix("Session") ? liveFamily(for: providerID) : nil,
             showsEdgeGlow: edgeGlowEnabled,
+            showsTopDivider: showsTopDivider,
             providerAccent: Self.accent(for: providerID)
         )
             .environment(\.codexResetClaim, codexResetClaims[providerID])

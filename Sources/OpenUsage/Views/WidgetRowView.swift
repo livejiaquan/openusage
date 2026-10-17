@@ -28,6 +28,8 @@ struct WidgetRowView: View {
     var liveSweepFamily: LiveFamily? = nil
     /// Draws the faint breathing glow at the live meter's leading edge (Live Activity setting).
     var showsEdgeGlow = false
+    /// A hairline above this row, separating an On Demand group (resets, top models) from the row above.
+    var showsTopDivider = false
     /// Provider color for the Top Models share bars and today's trend bar (nil = the healthy meter blue).
     var providerAccent: Color? = nil
 
@@ -76,6 +78,9 @@ struct WidgetRowView: View {
         // text row (`condensedTop`) in both densities.
         .padding(.top, topPadding)
         .padding(.bottom, bottomPadding)
+        .overlay(alignment: .top) {
+            if showsTopDivider { OnDemandGroupDivider() }
+        }
     }
 
     private var topPadding: CGFloat {

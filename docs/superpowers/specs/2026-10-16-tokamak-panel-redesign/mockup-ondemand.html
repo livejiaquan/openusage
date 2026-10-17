@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>On Demand Layout</title>
+<style>
+  :root {
+    --text: rgba(255,255,255,.95); --sub: rgba(235,235,245,.62); --ter: rgba(235,235,245,.38);
+    --hair: rgba(255,255,255,.08); --track: rgba(255,255,255,.10); --chip: rgba(255,255,255,.09);
+    --claude: #e8825a; --codex: #3fcfa8; --orange: #ff9f0a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; color: var(--text); padding: 28px 20px 60px;
+         font: 13px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang TC", sans-serif; -webkit-font-smoothing: antialiased;
+         background: radial-gradient(900px 600px at 15% 0%, #6b2752, transparent 60%), radial-gradient(800px 600px at 85% 40%, #22346e, transparent 60%), #17131d; }
+  header { max-width: 1400px; margin-bottom: 20px; }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  .lead { color: var(--sub); margin: 0 0 14px; max-width: 760px; line-height: 1.55; }
+  .switch { display: inline-flex; background: rgba(255,255,255,.08); border-radius: 8px; padding: 2px; }
+  .switch button { all: unset; cursor: pointer; padding: 4px 12px; border-radius: 6px; color: var(--sub); font-size: 12px; font-weight: 500; }
+  .switch button.on { background: rgba(255,255,255,.16); color: var(--text); }
+  .switch button:focus-visible { outline: 2px solid #0a84ff; outline-offset: 1px; }
+  .row4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; max-width: 1400px; align-items: start; }
+  .col h2 { font-size: 14px; margin: 0 0 4px; }
+  .col p { margin: 0 0 12px; color: var(--sub); font-size: 12px; line-height: 1.5; min-height: 54px; }
+  .panel { width: 320px; padding: 12px; border-radius: 18px; background: rgba(32,30,40,.55);
+           backdrop-filter: blur(40px) saturate(1.6); -webkit-backdrop-filter: blur(40px) saturate(1.6);
+           border: .5px solid rgba(255,255,255,.16); box-shadow: 0 20px 50px rgba(0,0,0,.45); }
+  .card { background: rgba(0,0,0,.32); border-radius: 12px; border: .5px solid rgba(255,255,255,.12);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.08); padding: 4px 12px 10px; }
+  .caret { display: flex; justify-content: center; color: var(--sub); height: 22px; align-items: center; }
+  .num { font-variant-numeric: tabular-nums; }
+  .sub { color: var(--sub); } .ter { color: var(--ter); }
+
+  /* ---------- Current (as shipped) ---------- */
+  .cur .title { font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; margin-top: 10px; }
+  .cur .title span { font-weight: 400; color: var(--sub); }
+  .cur .rl { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .cur .n { width: 18px; height: 18px; border-radius: 50%; background: var(--chip); display: grid; place-items: center; font-size: 10.5px; font-weight: 600; }
+  .cur .model { display: flex; justify-content: space-between; margin-top: 6px; }
+  .cur .bar { height: 3px; border-radius: 2px; background: var(--track); margin-top: 3px; }
+  .cur .bar i { display: block; height: 100%; border-radius: 2px; background: var(--claude); }
+  .cur .u3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 6px; }
+  .cur .u3 small { display: block; color: var(--sub); font-size: 11px; } .cur .u3 b { display: block; } .cur .u3 span { color: var(--sub); font-size: 11px; }
+
+  /* ---------- Shared rhythm for A/B/C: one 12 pt gap between groups, 6 pt inside ---------- */
+  .grp { padding: 10px 0; }
+  .grp + .grp { border-top: .5px solid var(--hair); }
+  .gh { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--sub); margin-bottom: 7px; }
+  .gh b { font-weight: 500; color: var(--sub); }
+
+  /* A: quiet sections */
+  .a .rl { display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: center; min-height: 24px; }
+  .a .n { width: 18px; height: 18px; border-radius: 50%; background: var(--chip); display: grid; place-items: center; font-size: 10.5px; font-weight: 600; }
+  .a .mrow { display: grid; grid-template-columns: 1fr 64px 62px; gap: 10px; align-items: center; min-height: 22px; }
+  .a .mrow .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .a .mbar { height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
+  .a .mbar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+  .a .v { text-align: right; }
+  .a .u3 { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .a .u3 div { padding-right: 8px; }
+  .a .u3 div + div { padding-left: 10px; border-left: .5px solid var(--hair); }
+  .a .u3 small { display: block; font-size: 11px; color: var(--sub); margin-bottom: 2px; }
+  .a .u3 b { display: block; font-weight: 600; } .a .u3 span { font-size: 11px; color: var(--sub); }
+
+  /* B: one composition bar */
+  .b .rline { display: flex; justify-content: space-between; align-items: center; min-height: 24px; }
+  .b .seg { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 2px; margin: 2px 0 8px; }
+  .b .seg i { display: block; height: 100%; }
+  .b .leg { display: grid; grid-template-columns: 8px 1fr 36px 62px; gap: 8px; align-items: center; min-height: 21px; }
+  .b .sw { width: 8px; height: 8px; border-radius: 2px; }
+  .b .leg .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .b .r { text-align: right; }
+  .b .u3 { display: grid; grid-template-columns: repeat(3, 1fr); text-align: left; }
+  .b .u3 small { display: block; font-size: 11px; color: var(--sub); }
+  .b .u3 b { display: block; font-size: 15px; font-weight: 600; letter-spacing: -.2px; margin: 1px 0; }
+  .b .u3 span { font-size: 11px; color: var(--sub); }
+  .use { all: unset; cursor: pointer; font-size: 11px; font-weight: 500; padding: 0 10px; min-height: 22px; display: inline-flex; align-items: center; border-radius: 99px; background: var(--chip); margin-left: 8px; }
+  .use:hover { background: rgba(255,255,255,.16); } .use:focus-visible { outline: 2px solid #0a84ff; }
+  .more { all: unset; cursor: pointer; color: var(--sub); font-size: 12px; min-height: 24px; display: inline-flex; align-items: center; gap: 4px; }
+  .more:hover { color: var(--text); } .more:focus-visible { outline: 2px solid #0a84ff; border-radius: 4px; }
+  .soon { color: var(--orange); }
+  .endc { display: inline-flex; align-items: center; min-height: 24px; }
+
+  /* C: ledger table */
+  .c table { width: 100%; border-collapse: collapse; }
+  .c td { padding: 0; height: 24px; vertical-align: middle; }
+  .c td.r { text-align: right; padding-left: 10px; white-space: nowrap; }
+  .c td.l { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+  .c .tick { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 7px; vertical-align: 1px; }
+  .c .tick.dim { opacity: .45; }
+</style>
+</head>
+<body>
+<header>
+  <h1>On Demand 區塊：三種排版</h1>
+  <p class="lead">左邊第一個是目前的樣子，另外三個是新方向。三個方向都統一成「區塊間距 12pt、區塊內 6pt」，區塊標題降成次要灰色，所有數字放在同一條對齊線上。可以切換 Claude（1 張 reset）和 Codex（5 張 reset，可兌換）看看溢出時的樣子。</p>
+  <div class="switch" role="tablist" aria-label="資料">
+    <button class="on" data-set="claude" role="tab" aria-selected="true">Claude</button>
+    <button data-set="codex" role="tab" aria-selected="false">Codex（5 張 reset）</button>
+  </div>
+</header>
+
+<div class="row4">
+  <section class="col"><h2>現在</h2><p>區塊標題和數值一樣粗，間距忽大忽小，數字有的用點串起來靠右、有的三欄靠左。</p>
+    <div class="panel"><div class="card cur" data-view="cur"></div></div></section>
+  <section class="col"><h2>A：安靜分區</h2><p>結構不變。細分隔線把三組分開，標題變安靜，模型的條改成固定寬的小條放在數字左邊，所有金額對齊同一欄。</p>
+    <div class="panel"><div class="card a" data-view="a"></div></div></section>
+  <section class="col"><h2>B：一條組成條（推薦）</h2><p>三個模型合成一條分段長條，下面是對齊的圖例。最省高度，一眼看出誰佔最多。Usage 的金額稍微放大，當作這張卡的重點。</p>
+    <div class="panel"><div class="card b" data-view="b"></div></div></section>
+  <section class="col"><h2>C：帳本表格</h2><p>全部變成一張表：左邊名稱、右邊兩欄數字，全部右對齊。最整齊、最好比較，但比較沒有圖像感。</p>
+    <div class="panel"><div class="card c" data-view="c"></div></div></section>
+</div>
+
+<script>
+  const data = {
+    claude: { accent: "#e8825a", resets: [["Oct 23", "in 5d", false]], claimable: false,
+      models: [["claude-opus-5-5", 59, "$122.19"], ["claude-fable-5-1", 36, "$75.83"], ["Other", 5, "$10.78"]],
+      usage: [["Today", "$208.79", "398M"], ["Yesterday", "$462.02", "1.2B"], ["30 Days", "$2,132.63", "4.7B"]] },
+    codex: { accent: "#3fcfa8", resets: [["Oct 19", "in 3d", true], ["Oct 24", "in 8d", false], ["Oct 29", "in 13d", false], ["Nov 2", "in 17d", false], ["Nov 9", "in 24d", false]], claimable: true,
+      models: [["gpt-5.6-sol", 71, "$61.20"], ["gpt-5.6-codex", 24, "$20.66"], ["Other", 5, "$4.31"]],
+      usage: [["Today", "$86.17", "152M"], ["Yesterday", "$140.55", "301M"], ["30 Days", "$1,814.74", "3.9B"]] } };
+  const shades = a => [a, a + "b3", a + "59"];
+  let set = "claude"; const expanded = { a: false, b: false, c: false, cur: false };
+  const caret = `<div class="caret" aria-hidden="true"><svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 5 L5 1 L9 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
+  const moreBtn = (k, total) => total > 2 ? `<button class="more" data-more="${k}">${expanded[k] ? "Show Less" : `Show ${total - 2} More`}<svg width="9" height="6" viewBox="0 0 10 6" style="transform:rotate(${expanded[k] ? 180 : 0}deg);transition:transform .25s"><path d="M1 1 L5 5 L9 1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>` : "";
+  const shown = (k, d) => expanded[k] ? d.resets : d.resets.slice(0, 2);
+  const use = d => d.claimable ? `<button class="use">Use</button>` : "";
+
+  const views = {
+    cur: d => caret + `
+      <div class="title">Rate Limit Resets <span>${d.resets.length} available</span></div>
+      ${shown("cur", d).map((r, i) => `<div class="rl"><span class="n">${i + 1}</span><span style="flex:1">Expires ${r[0]}</span><span class="sub">${r[1]}</span>${use(d)}</div>`).join("")}
+      <div class="title">Top Models Today</div>
+      ${d.models.map(m => `<div class="model"><span>${m[0]}</span><span class="sub num">${m[1]}% · ${m[2]}</span></div><div class="bar"><i style="width:${m[1]}%;background:${d.accent}"></i></div>`).join("")}
+      <div class="title">Usage</div>
+      <div class="u3">${d.usage.map(u => `<div><small>${u[0]}</small><b class="num">${u[1]}</b><span class="num">${u[2]} tokens</span></div>`).join("")}</div>`,
+    a: d => caret + `
+      <div class="grp"><div class="gh"><b>Rate Limit Resets</b><span class="num">${d.resets.length} available</span></div>
+        ${shown("a", d).map((r, i) => `<div class="rl"><span class="n">${i + 1}</span><span>Expires ${r[0]}</span><span class="endc"><span class="num ${r[2] ? "soon" : "sub"}">${r[1]}</span>${use(d)}</span></div>`).join("")}${moreBtn("a", d.resets.length)}</div>
+      <div class="grp"><div class="gh"><b>Top Models Today</b></div>
+        ${d.models.map(m => `<div class="mrow" style="--accent:${d.accent}"><span class="nm">${m[0]}</span><span class="mbar"><i style="width:${m[1]}%"></i></span><span class="v num">${m[2]}</span></div>`).join("")}</div>
+      <div class="grp"><div class="gh"><b>Usage</b></div>
+        <div class="u3">${d.usage.map(u => `<div><small>${u[0]}</small><b class="num">${u[1]}</b><span class="num">${u[2]} tokens</span></div>`).join("")}</div></div>`,
+    b: d => { const s = shades(d.accent); return caret + `
+      <div class="grp"><div class="gh"><b>Rate Limit Resets</b><span class="num">${d.resets.length} available</span></div>
+        ${shown("b", d).map(r => `<div class="rline"><span>Expires ${r[0]}</span><span class="endc"><span class="num ${r[2] ? "soon" : "sub"}">${r[1]}</span>${use(d)}</span></div>`).join("")}${moreBtn("b", d.resets.length)}</div>
+      <div class="grp"><div class="gh"><b>Top Models Today</b></div>
+        <div class="seg" role="img" aria-label="Model share">${d.models.map((m, i) => `<i style="width:${m[1]}%;background:${s[i]}"></i>`).join("")}</div>
+        ${d.models.map((m, i) => `<div class="leg"><span class="sw" style="background:${s[i]}"></span><span class="nm">${m[0]}</span><span class="r num sub">${m[1]}%</span><span class="r num">${m[2]}</span></div>`).join("")}</div>
+      <div class="grp"><div class="gh"><b>Usage</b></div>
+        <div class="u3">${d.usage.map(u => `<div><small>${u[0]}</small><b class="num">${u[1]}</b><span class="num">${u[2]} tokens</span></div>`).join("")}</div></div>`; },
+    c: d => caret + `
+      <div class="grp"><div class="gh"><b>Rate Limit Resets</b><span class="num">${d.resets.length} available</span></div>
+        <table>${shown("c", d).map(r => `<tr><td class="l">Expires ${r[0]}</td><td class="r num ${r[2] ? "soon" : "sub"}">${r[1]}</td><td class="r" style="width:1%">${use(d)}</td></tr>`).join("")}</table>${moreBtn("c", d.resets.length)}</div>
+      <div class="grp"><div class="gh"><b>Top Models Today</b></div>
+        <table style="--accent:${d.accent}">${d.models.map((m, i) => `<tr><td class="l"><span class="tick ${i ? "dim" : ""}"></span>${m[0]}</td><td class="r num sub">${m[1]}%</td><td class="r num">${m[2]}</td></tr>`).join("")}</table></div>
+      <div class="grp"><div class="gh"><b>Usage</b></div>
+        <table>${d.usage.map(u => `<tr><td class="l">${u[0]}</td><td class="r num" style="font-weight:600">${u[1]}</td><td class="r num sub">${u[2]}</td></tr>`).join("")}</table></div>`
+  };
+  function render() { document.querySelectorAll("[data-view]").forEach(el => el.innerHTML = views[el.dataset.view](data[set])); }
+  document.addEventListener("click", e => {
+    const t = e.target.closest("[data-set],[data-more]"); if (!t) return;
+    if (t.dataset.set) { set = t.dataset.set; document.querySelectorAll("[data-set]").forEach(b => { const on = b === t; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); }); }
+    if (t.dataset.more) expanded[t.dataset.more] = !expanded[t.dataset.more];
+    render();
+  });
+  if (location.hash.includes("codex")) { set = "codex"; document.querySelectorAll("[data-set]").forEach(b => { const on = b.dataset.set === "codex"; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); }); }
+  if (location.hash.includes("open")) { expanded.a = expanded.b = expanded.c = expanded.cur = true; }
+  render();
+</script>
+</body>
+</html>
