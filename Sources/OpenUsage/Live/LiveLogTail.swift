@@ -103,7 +103,20 @@ actor LiveLogTail {
         guard let size = try? handle.seekToEnd() else { return }
 
         if let existing = cursors[path], size < existing.offset { forget(path) }
-        var cursor = cursors[path] ?? newCursor(now: now)
+        var cursor: Cursor
+        if let existing = cursors[path] {
+            cursor = existing
+        } else {
+            cursor = newCursor(now: now)
+            // A new Claude log starts where its last half hour begins (Claude lines are self-contained).
+            // Codex rollouts stay whole: their parser carries running totals and session metadata.
+            if family == .claude {
+                cursor.offset = LiveTailStart.offset(size: size, since: now.addingTimeInterval(-Self.window)) { offset, count in
+                    try? handle.seek(toOffset: offset)
+                    return try? handle.read(upToCount: count)
+                }
+            }
+        }
         guard size > cursor.offset else {
             cursors[path] = cursor
             return
