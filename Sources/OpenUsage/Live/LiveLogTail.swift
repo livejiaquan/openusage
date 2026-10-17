@@ -12,6 +12,7 @@ enum LiveFamily: String, Sendable, CaseIterable {
 /// contribution is dropped and re-read, which keeps a rewrite from double counting.
 actor LiveLogTail {
     static let window: TimeInterval = 30 * 60
+    static let discoveryInterval: TimeInterval = 10
 
     private struct Cursor {
         var offset: UInt64 = 0
@@ -24,6 +25,8 @@ actor LiveLogTail {
     private let family: LiveFamily
     private let candidateFiles: @Sendable (_ modifiedSince: Date) async -> [URL]
     private var cursors: [String: Cursor] = [:]
+    private var knownFiles: [URL] = []
+    private var lastDiscovery: Date?
     /// Claude dedup across files with the history scanner's rules (`ClaudeLogUsageScanner.dedup`):
     /// "messageID|requestID" → the kept entry and the file that counted it, plus a message-only index
     /// so a sidechain replay under a new request id collides too. A preferred duplicate (parent over
@@ -37,16 +40,26 @@ actor LiveLogTail {
     }
 
     func poll(now: Date) async -> LiveRateBuckets {
-        let files = await candidateFiles(now.addingTimeInterval(-Self.window))
-        let current = Set(files.map(\.path))
-        for path in cursors.keys where !current.contains(path) { forget(path) }
-        for url in files { read(url, now: now) }
+        // Walking the log folders is the costly part of a poll, so it runs every 10 s; the polls in
+        // between only read bytes appended to the files already known.
+        if let lastDiscovery, now.timeIntervalSince(lastDiscovery) < Self.discoveryInterval, now >= lastDiscovery {
+            for url in knownFiles { read(url, now: now) }
+        } else {
+            let files = await candidateFiles(now.addingTimeInterval(-Self.window))
+            knownFiles = files
+            lastDiscovery = now
+            let current = Set(files.map(\.path))
+            for path in cursors.keys where !current.contains(path) { forget(path) }
+            for url in files { read(url, now: now) }
+        }
         dropClaudeKeys { now.timeIntervalSince($0.entry.timestamp) > Self.window }
         return LiveRateBuckets.merged(cursors.values.map(\.buckets), now: now)
     }
 
     func reset() {
         cursors = [:]
+        knownFiles = []
+        lastDiscovery = nil
         claudeKept = [:]
         claudeKeysByMessage = [:]
     }

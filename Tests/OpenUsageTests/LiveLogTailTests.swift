@@ -136,6 +136,27 @@ final class LiveLogTailTests: XCTestCase {
         _ = await tail.poll(now: now)
         XCTAssertEqual(asked.value?.timeIntervalSince(now) ?? 0, -30 * 60, accuracy: 0.001)
     }
+
+    func testDiscoveryRunsEveryTenSecondsWhileKnownFilesKeepReading() async throws {
+        let now = Date()
+        let url = try write("a.jsonl", claudeLine(id: "m1", request: "r1", input: 1_000, at: now.addingTimeInterval(-60)) + "\n")
+        let calls = CallCounter()
+        let tail = LiveLogTail(family: .claude, candidateFiles: { _ in
+            calls.count += 1
+            return [url]
+        })
+        _ = await tail.poll(now: now)
+        try append(url, claudeLine(id: "m2", request: "r2", input: 1_000, at: now.addingTimeInterval(-30)) + "\n")
+        let second = await tail.poll(now: now.addingTimeInterval(2))
+        XCTAssertEqual(calls.count, 1, "no directory walk 2 s later")
+        XCTAssertEqual(second.ratePerMinute(now: now.addingTimeInterval(2)), 200, accuracy: 0.001, "appended lines still read")
+        _ = await tail.poll(now: now.addingTimeInterval(10))
+        XCTAssertEqual(calls.count, 2, "rediscovers after 10 s")
+    }
+}
+
+private final class CallCounter: @unchecked Sendable {
+    var count = 0
 }
 
 private final class DateBox: @unchecked Sendable {

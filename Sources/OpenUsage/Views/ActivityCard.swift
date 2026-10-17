@@ -18,6 +18,7 @@ struct ActivityCard: View {
     @AppStorage(LiveActivitySettings.deviceBreakdownKey) private var deviceBreakdownEnabled = true
     @AppStorage(DensitySetting.key) private var density = DensitySetting.regular
     @State private var breakdown = ActivityBreakdown.providers
+    @State private var unitHovered = false
 
     private var showsBreakdownSwitch: Bool { deviceBreakdownEnabled && live.showsDeviceBreakdown }
     private var activeBreakdown: ActivityBreakdown { showsBreakdownSwitch ? breakdown : .providers }
@@ -131,22 +132,26 @@ struct ActivityCard: View {
             .pickerStyle(.inline)
             .labelsHidden()
         } label: {
-            // `.button` keeps the label's own order: the text, then the chevron.
-            HStack(spacing: 3) {
-                Text(unitText).lineLimit(1)
-                MenuChevron()
-            }
-            .font(.system(size: density.supportingPointSize))
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 6)
-            .frame(minHeight: 24)
-            .contentShape(Rectangle())
+            // A quiet button: no arrow (the card's caret is the only chevron); a soft pill appears on
+            // hover to show the unit is clickable, and it opens the same menu.
+            Text(unitText)
+                .lineLimit(1)
+                .font(.system(size: density.supportingPointSize))
+                .foregroundStyle(unitHovered ? .primary : .secondary)
+                .padding(.horizontal, 6)
+                .frame(minHeight: 24)
+                .background(Color.primary.opacity(unitHovered ? 0.1 : 0),
+                            in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .contentShape(Rectangle())
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
+        .onHover { unitHovered = $0 }
+        .animation(.easeOut(duration: 0.15), value: unitHovered)
         .accessibilityLabel("Headline: \(headline.title)")
+        .accessibilityHint("Choose what the big number shows")
     }
 
     private var caret: some View {
