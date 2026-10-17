@@ -239,6 +239,7 @@ struct WidgetGroupedListView: View {
     /// and quick links. Rendered whenever the provider has either kind of expanded content.
     private func expandToggle(providerID: String, isExpanded: Bool) -> some View {
         Button {
+            AppLog.info(.statusItem, "ui: \(isExpanded ? "collapse" : "expand") \(providerID)")
             withAnimation(Motion.spring) {
                 _ = layout.setProviderExpanded(!isExpanded, for: providerID)
             }

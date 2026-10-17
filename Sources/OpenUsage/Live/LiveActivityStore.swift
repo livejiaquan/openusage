@@ -66,11 +66,18 @@ final class LiveActivityStore {
         guard !polling else { return }
         polling = true
         defer { polling = false }
+        let started = Date()
         var next: [LiveFamily: LiveRateBuckets] = [:]
         for (family, tail) in tails {
             next[family] = await tail.poll(now: now())
         }
-        if next != local { local = next }
+        let changed = next != local
+        if changed { local = next }
+        let elapsed = Date().timeIntervalSince(started)
+        // Lines up with `PanelPerfMonitor` stalls when tracing a hitch to the live poll.
+        if elapsed >= 0.05 {
+            AppLog.info(.statusItem, "perf: live poll took \(Int(elapsed * 1000)) ms (changed: \(changed))")
+        }
         if !hasMeasured { hasMeasured = true }
     }
 

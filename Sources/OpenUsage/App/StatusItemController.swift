@@ -43,6 +43,8 @@ final class StatusItemController: NSObject {
     /// The panel's backdrop: an opaque tray by default, swapped to a behind-window vibrancy view when
     /// the transparency style is non-opaque. Built once and toggled, so it can't race the style observer.
     private let backdrop = PopoverBackdropView(cornerRadius: StatusItemController.cornerRadius)
+    /// Logs open latency and frame stalls while the panel is open (see `PanelPerfMonitor`).
+    private let perf = PanelPerfMonitor()
     /// Token for the appearance-change observer; held to follow the documented removal pattern.
     private var appearanceObserver: NSObjectProtocol?
     /// Corner radius of the panel surface; tuned to read like a system menu-bar popover.
@@ -308,6 +310,7 @@ final class StatusItemController: NSObject {
     }
 
     private func showPanel() {
+        perf.markOpenRequested()
         guard let button = statusItem.button, let buttonWindow = button.window else {
             AppLog.error(.statusItem, "Cannot show panel: status item has no button")
             return
@@ -329,6 +332,7 @@ final class StatusItemController: NSObject {
         // `canBecomeKey` + `.nonactivatingPanel` makes this key without activating the app — no
         // activation race, so the dashboard receives keys on the first try.
         panel.makeKeyAndOrderFront(nil)
+        perf.start(window: panel)
         // Becoming key, AppKit auto-focuses the first control in the key-view loop (the first row's
         // Used/Left toggle) when system Keyboard Navigation is on — so the popover would open with a
         // stray focus ring nobody asked for. Drop it; keyboard nav still works (it rides a local key
@@ -357,6 +361,7 @@ final class StatusItemController: NSObject {
         // popover is hidden). This is the authoritative hide signal, flipped synchronously with `orderOut`.
         container.transparency.setPopoverShown(false)
         container.liveActivity.setVisible(false)
+        perf.stop()
         panel.orderOut(nil)
         outsideClickMonitor.stop()
         statusItem.button?.highlight(false)

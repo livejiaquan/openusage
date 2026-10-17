@@ -156,6 +156,7 @@ struct ActivityCard: View {
 
     private var caret: some View {
         Button {
+            AppLog.info(.statusItem, "ui: \(collapsed ? "expand" : "collapse") activity")
             collapsed.toggle()
         } label: {
             DisclosureChevron(expanded: !collapsed)
