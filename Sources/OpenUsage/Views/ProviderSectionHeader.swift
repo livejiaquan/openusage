@@ -24,9 +24,10 @@ struct ProviderSectionHeader: View {
     /// Dashboard-only screenshot action. The reorder preview omits it, while Customize uses its own
     /// row type and is unaffected by this header.
     var onCopyScreenshot: (() -> Bool)?
-    /// Live tokens per minute for this provider (dashboard only, Claude/Codex); hidden while the
-    /// hover-revealed copy button shows so the two never overlap.
-    var liveRate: Double?
+    /// The live family whose speed chip this header shows (dashboard only, Claude/Codex). The chip
+    /// reads the speed itself (`LiveRateChipSlot`), so live updates don't re-render the header; it hides
+    /// while the hover-revealed copy button shows so the two never overlap.
+    var liveFamily: LiveFamily?
 
     /// Header type and icon track the density setting like the rows do, so Compact shrinks the
     /// whole section anatomy — not just the rows under it.
@@ -42,7 +43,7 @@ struct ProviderSectionHeader: View {
         refreshing: Bool = false,
         staleness: StalenessHint? = nil,
         onCopyScreenshot: (() -> Bool)? = nil,
-        liveRate: Double? = nil
+        liveFamily: LiveFamily? = nil
     ) {
         self.provider = provider
         self.plan = plan
@@ -50,7 +51,7 @@ struct ProviderSectionHeader: View {
         self.refreshing = refreshing
         self.staleness = staleness
         self.onCopyScreenshot = onCopyScreenshot
-        self.liveRate = liveRate
+        self.liveFamily = liveFamily
     }
 
     var body: some View {
@@ -108,8 +109,8 @@ struct ProviderSectionHeader: View {
                         action: onCopyScreenshot
                     )
                 }
-                if let liveRate, !(isHovered && onCopyScreenshot != nil) {
-                    LiveRateChip(providerName: provider.displayName, rate: liveRate)
+                if let liveFamily, !(isHovered && onCopyScreenshot != nil) {
+                    LiveRateChipSlot(family: liveFamily, providerName: provider.displayName)
                 }
             }
         }

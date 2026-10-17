@@ -83,7 +83,7 @@ analytics toggle controls extra PostHog events, not daily activity or crash repo
 
 ## Live activity
 
-The Activity card's speed for this Mac comes from reading new lines added to Claude Code and Codex log files on this Mac — once at launch, then only while the panel is open. Nothing from those logs is sent anywhere. Remote devices' speed comes from the history they already send at import.
+The Activity card's speed for this Mac comes from reading new lines added to Claude Code and Codex log files on this Mac — every 2 seconds while the panel is open and every 30 seconds otherwise, reading only lines added since the last check. Nothing from those logs is sent anywhere. Remote devices' speed comes from the history they already send at import.
 
 ## Turning extra analytics off
 

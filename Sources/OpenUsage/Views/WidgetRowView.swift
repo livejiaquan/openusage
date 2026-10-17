@@ -23,8 +23,9 @@ struct WidgetRowView: View {
     /// their neighbors — the list supplies it — and both densities use it to pull consecutive
     /// one-liners into a single cluster (Compact a step harder).
     var condensedTop: Bool = false
-    /// Calm sweep cycle for a live meter (Claude/Codex Session while tokens are flowing); nil = static.
-    var liveSweepPeriod: TimeInterval? = nil
+    /// The live family whose speed paces this meter's calm sweep (Claude/Codex Session); nil = static.
+    /// The sweep reads the speed itself (`LiveSweepSlot`), so live updates don't re-render the row.
+    var liveSweepFamily: LiveFamily? = nil
     /// Draws the faint breathing glow at the live meter's leading edge (Live Activity setting).
     var showsEdgeGlow = false
     /// Provider color for the Top Models share bars and today's trend bar (nil = the healthy meter blue).
@@ -413,14 +414,14 @@ struct WidgetRowView: View {
                 Capsule()
                     .fill(partyMode ? PartyMode.meterFill : severityColor(state.severity))
                     .overlay {
-                        if let liveSweepPeriod { CalmMeterSweep(period: liveSweepPeriod) }
+                        if let liveSweepFamily { LiveSweepSlot(family: liveSweepFamily) }
                     }
                     .clipShape(Capsule())
                     .frame(width: fillWidth(track: proxy.size.width))
             }
             .overlay(alignment: .leading) {
-                if showsEdgeGlow, liveSweepPeriod != nil, data.hasData {
-                    MeterEdgeGlow().offset(x: fillWidth(track: proxy.size.width) - 7)
+                if showsEdgeGlow, let liveSweepFamily, data.hasData {
+                    LiveEdgeGlowSlot(family: liveSweepFamily).offset(x: fillWidth(track: proxy.size.width) - 7)
                 }
             }
             .overlay(alignment: .leading) {

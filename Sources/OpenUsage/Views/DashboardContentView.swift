@@ -87,14 +87,8 @@ struct DashboardContentView: View {
             .padding(.bottom, density.sectionSpacing)
         }
         if showActivityCard {
-            ActivityCard(
-                live: container.liveActivity.view(scope: container.dataStore.historyScopeID,
-                                                  enabledFamilies: container.liveEnabledFamilies),
-                measuring: !container.liveActivity.hasMeasured,
-                todaySpend: todayTotals.spend,
-                todayTokens: todayTotals.tokens,
-                alert: container.dataStore.runOutAlert()
-            )
+            // A leaf that reads the live store itself, so live updates don't re-render this view.
+            ActivityCardSlot(container: container)
             .padding(.bottom, density.sectionSpacing)
         }
         // The cross-provider Total Spend ring stays visible whenever the user allows it and an enabled
@@ -117,20 +111,6 @@ struct DashboardContentView: View {
                 reorderLift: $reorderLift
             )
         }
-    }
-
-    /// Today's spend and tokens for the current Usage From scope (the rendered snapshots already are),
-    /// over enabled providers only — a disabled provider keeps its last snapshot but leaves the totals.
-    private var todayTotals: (spend: Double?, tokens: Int?) {
-        let key = DailyUsageAccumulator.dayKey(from: Date())
-        var spend = 0.0, tokens = 0, sawCost = false, sawDay = false
-        for (providerID, snapshot) in container.dataStore.snapshots where container.enablement.isEnabled(providerID) {
-            guard let day = snapshot.usageHistory?.series.daily.first(where: { $0.date == key }) else { continue }
-            sawDay = true
-            tokens += day.totalTokens
-            if let cost = day.costUSD { spend += cost; sawCost = true }
-        }
-        return (sawCost ? spend : nil, sawDay ? tokens : nil)
     }
 
     private func scopeName(_ id: String) -> String {

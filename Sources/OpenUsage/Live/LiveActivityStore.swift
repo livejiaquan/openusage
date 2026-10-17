@@ -1,19 +1,22 @@
 import Foundation
 import Observation
 
-/// Live token speed for the dashboard. Works only while the panel is visible: `setVisible(true)` starts
-/// a 2-second poll of the local log tails plus an FSEvents watcher that polls immediately on writes;
-/// `setVisible(false)` cancels both, so a closed panel costs nothing.
+/// Live token speed for the dashboard. While the panel is visible, `setVisible(true)` runs a 2-second poll
+/// of the local log tails plus an FSEvents watcher that polls immediately on writes. While it is closed, a
+/// 30-second background poll keeps the tails caught up (reading only appended bytes), so opening the
+/// panel never has to swallow a long backlog and the speed is current on the first frame.
 @MainActor
 @Observable
 final class LiveActivityStore {
     static let pollInterval: Duration = .seconds(2)
+    static let backgroundInterval: Duration = .seconds(30)
 
     @ObservationIgnored private let tails: [LiveFamily: LiveLogTail]
     @ObservationIgnored private let watchedRoots: [URL]
     @ObservationIgnored private let remoteDevices: RemoteUsageDeviceStore
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private var pollTask: Task<Void, Never>?
+    @ObservationIgnored private var backgroundTask: Task<Void, Never>?
     @ObservationIgnored private var watcher: LogDirectoryWatcher?
     @ObservationIgnored private var polling = false
 
@@ -31,6 +34,8 @@ final class LiveActivityStore {
 
     func setVisible(_ visible: Bool) {
         if visible {
+            backgroundTask?.cancel()
+            backgroundTask = nil
             guard pollTask == nil else { return }
             pollTask = Task { [weak self] in
                 while !Task.isCancelled {
@@ -48,13 +53,29 @@ final class LiveActivityStore {
             pollTask = nil
             watcher?.stop()
             watcher = nil
+            startBackgroundPolling()
+        }
+    }
+
+    private func startBackgroundPolling() {
+        guard backgroundTask == nil else { return }
+        backgroundTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.backgroundInterval)
+                guard !Task.isCancelled else { return }
+                await self?.pollOnce()
+            }
         }
     }
 
     /// One poll at launch, so the first time the panel opens it already has a speed (later opens keep
     /// the buckets from the previous session and catch up on the bytes written while closed).
     func prewarm() {
-        Task { [weak self] in await self?.pollOnce() }
+        Task { [weak self] in
+            await self?.pollOnce()
+            guard let self, self.pollTask == nil else { return }
+            self.startBackgroundPolling()
+        }
     }
 
     func view(scope: String, enabledFamilies: Set<LiveFamily>) -> LiveActivityView {

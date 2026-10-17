@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Activity Arrows</title>
+<style>
+  :root {
+    --bg: #1b1622; --glass: rgba(32,30,40,.55); --card: rgba(0,0,0,.32); --cardEdge: rgba(255,255,255,.12);
+    --text: rgba(255,255,255,.95); --sub: rgba(235,235,245,.62); --chip: rgba(255,255,255,.09); --hover: rgba(255,255,255,.12);
+    --green: #30d158; --orange: #ff9f0a; --claude: #e8825a; --codex: #3fcfa8;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: radial-gradient(1200px 700px at 20% 0%, #7a2d5a, transparent 60%),
+         radial-gradient(900px 600px at 90% 30%, #263a7a, transparent 60%), var(--bg);
+         color: var(--text); font: 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang TC", sans-serif;
+         -webkit-font-smoothing: antialiased; padding: 28px 16px 60px; }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  .lead { color: var(--sub); margin: 0 0 22px; max-width: 980px; line-height: 1.55; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 22px; max-width: 1100px; }
+  .opt { display: grid; gap: 10px; align-content: start; }
+  .opt h2 { font-size: 14px; margin: 0; }
+  .opt p { margin: 0; color: var(--sub); line-height: 1.5; font-size: 12px; }
+  .panel { width: 320px; border-radius: 18px; padding: 12px; background: var(--glass);
+           backdrop-filter: blur(40px) saturate(1.6); -webkit-backdrop-filter: blur(40px) saturate(1.6);
+           border: .5px solid rgba(255,255,255,.16); box-shadow: 0 20px 50px rgba(0,0,0,.45); }
+  .card { background: var(--card); border: .5px solid var(--cardEdge); border-radius: 12px; padding: 10px 12px 0;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
+  .row { display: flex; align-items: center; gap: 6px; min-height: 30px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex: none; animation: breathe 4.5s ease-in-out infinite; }
+  @keyframes breathe { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+  .num { font-weight: 600; letter-spacing: -.3px; font-variant-numeric: tabular-nums; transition: font-size .3s; white-space: nowrap; }
+  .collapsed .num { font-size: 17px; } .expanded .num { font-size: 24px; }
+  .unit { color: var(--sub); font-size: 12px; white-space: nowrap; }
+  button { all: unset; cursor: pointer; }
+  .menuBtn { white-space: nowrap; display: inline-flex; align-items: center; gap: 3px; min-height: 24px; padding: 0 6px; border-radius: 6px; color: var(--sub); font-size: 12px; position: relative; }
+  .menuBtn:hover { background: var(--hover); color: var(--text); }
+  .chev { width: 9px; height: 6px; transition: transform .3s cubic-bezier(.3,.7,.2,1); flex: none; }
+  .warn { color: var(--orange); font-size: 11px; flex: none; }
+  .row .trail { margin-left: auto; } .expanded .row .trail { margin-left: auto; }
+  svg.mini { margin-left: auto; flex: 1 1 auto; min-width: 40px; max-width: 96px; height: 22px; }
+  .expanded svg.mini, .expanded .warn { display: none; }
+  .caretRow { display: flex; justify-content: center; min-height: 24px; align-items: center; color: var(--sub); width: 100%; }
+  .caretRow:hover { color: var(--text); }
+  .details { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .32s cubic-bezier(.3,.7,.2,1), opacity .25s; opacity: 0; }
+  .expanded .details { grid-template-rows: 1fr; opacity: 1; }
+  .details > div { overflow: hidden; }
+  .inner { padding-bottom: 12px; display: grid; gap: 6px; }
+  svg.spark { width: 100%; height: 44px; display: block; }
+  .legend { display: grid; gap: 5px; font-size: 12px; color: var(--sub); }
+  .li { display: grid; grid-template-columns: 8px 1fr auto; gap: 8px; align-items: center; }
+  .li em { font-style: normal; color: var(--text); font-variant-numeric: tabular-nums; }
+  .sw { width: 8px; height: 8px; border-radius: 2px; }
+  .alert { color: var(--orange); background: rgba(255,159,10,.13); border: .5px solid rgba(255,159,10,.35); border-radius: 9px; padding: 7px 9px; font-size: 12px; line-height: 1.4; }
+  .menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 9; min-width: 150px; padding: 5px; border-radius: 10px; display: none;
+          background: rgba(40,38,48,.95); border: .5px solid rgba(255,255,255,.16); box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+  .menu.open { display: grid; }
+  .menu button { padding: 5px 8px 5px 22px; border-radius: 6px; font-size: 13px; color: var(--text); position: relative; }
+  .menu button:hover { background: rgba(10,132,255,.85); }
+  .menu button.on::before { content: "✓"; position: absolute; left: 7px; }
+  /* Option B: segmented tabs inside the expanded area */
+  .tabs { display: flex; background: var(--chip); border-radius: 7px; padding: 2px; position: relative; }
+  .tabs button { flex: 1; text-align: center; min-height: 24px; display: grid; place-items: center; font-size: 11px; font-weight: 500; color: var(--sub); position: relative; z-index: 1; }
+  .tabs button.on { color: var(--text); }
+  .thumb { position: absolute; top: 2px; bottom: 2px; border-radius: 5px; background: rgba(255,255,255,.14); transition: left .3s cubic-bezier(.3,.7,.2,1), width .3s; }
+  .rowBtn { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 30px; border-radius: 8px; }
+  /* Option C: header chevron at the trailing edge */
+  .trail { margin-left: 6px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; color: var(--sub); flex: none; }
+  .trail:hover { background: var(--hover); color: var(--text); }
+  .note { font-size: 11px; color: var(--sub); border-top: .5px solid rgba(255,255,255,.1); padding-top: 8px; margin-top: 2px; line-height: 1.5; }
+  .tag { display: inline-block; font-size: 10.5px; padding: 1px 7px; border-radius: 99px; background: var(--chip); color: var(--sub); margin-left: 6px; vertical-align: 1px; }
+  .rec { background: rgba(48,209,88,.18); color: #7ee09a; }
+</style>
+</head>
+<body>
+<h1>Activity 卡：收起時兩個箭頭的三種解法</h1>
+<p class="lead">目前收起時，同一行有「tokens today ⌄」（切換顯示內容）和下方的「⌄」（展開卡片）兩個箭頭。下面三個都可以實際點：點數字或單位、點箭頭、在展開後切換，看收起與展開兩種狀態。</p>
+
+<div class="grid">
+  <!-- A -->
+  <section class="opt">
+    <h2>A：單位改成「安靜按鈕」，只留展開箭頭 <span class="tag rec">推薦</span></h2>
+    <p>單位文字沒有箭頭，滑過時才浮出底色，點了打開同一個選單。整行只剩一個箭頭，而且位置和帳號卡的箭頭一致。</p>
+    <div class="panel"><div class="card collapsed" data-card="a">
+      <div class="row">
+        <span class="dot"></span><span class="num" data-num>212M</span>
+        <span style="position:relative"><button class="menuBtn" data-menu-btn><span data-unit>tokens today</span></button>
+          <div class="menu" data-menu></div></span>
+        <span class="warn">⚠︎</span>
+        <svg class="mini" data-mini viewBox="0 0 96 22" preserveAspectRatio="none"></svg>
+      </div>
+      <button class="caretRow" data-caret aria-label="展開"><svg class="chev" viewBox="0 0 10 6"><path d="M1 1 L5 5 L9 1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="details"><div><div class="inner" data-inner></div></div></div>
+    </div></div>
+  </section>
+
+  <!-- B -->
+  <section class="opt">
+    <h2>B：整行可點展開，切換改到展開後</h2>
+    <p>收起時整行就是一顆展開按鈕，連箭頭都不需要。要切換速度、今日花費、今日 token，展開後用分段切換（和 Providers / Devices 同一種元件）。</p>
+    <div class="panel"><div class="card collapsed" data-card="b">
+      <button class="rowBtn" data-rowbtn>
+        <span class="dot"></span><span class="num" data-num>212M</span><span class="unit" data-unit>tokens today</span>
+        <span class="warn">⚠︎</span>
+        <svg class="mini" data-mini viewBox="0 0 96 22" preserveAspectRatio="none"></svg>
+      </button>
+      <button class="caretRow" data-caret aria-label="展開" style="display:none"><svg class="chev" viewBox="0 0 10 6"><path d="M1 1 L5 5 L9 1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="details"><div><div class="inner" data-inner></div></div></div>
+    </div></div>
+  </section>
+
+  <!-- C -->
+  <section class="opt">
+    <h2>C：展開箭頭移到行尾</h2>
+    <p>像系統設定的展開列：箭頭固定在右上角，展開和收起都在同一點，往右轉 90°。單位仍保留小箭頭，但兩個箭頭的形狀與位置不同，不會混淆。</p>
+    <div class="panel"><div class="card collapsed" data-card="c">
+      <div class="row">
+        <span class="dot"></span><span class="num" data-num>212M</span>
+        <span style="position:relative"><button class="menuBtn" data-menu-btn><span data-unit>tokens today</span><svg class="chev" viewBox="0 0 10 6"><path d="M1 1 L5 5 L9 1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <div class="menu" data-menu></div></span>
+        <span class="warn">⚠︎</span>
+        <svg class="mini" data-mini viewBox="0 0 96 22" preserveAspectRatio="none"></svg>
+        <button class="trail" data-trail aria-label="展開"><svg class="chev" viewBox="0 0 6 10" style="width:6px;height:10px"><path d="M1 1 L5 5 L1 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+      <div class="details"><div><div class="inner" data-inner></div></div></div>
+      <div style="height:10px"></div>
+    </div></div>
+  </section>
+</div>
+
+<script>
+  const modes = [["1.29M","tokens/min"],["$458.33","spent today"],["212M","tokens today"]];
+  const names = ["Speed","Spent Today","Tokens Today"];
+  const H = Array.from({length:41},(_,i)=>[.6+.25*Math.sin(i/6)+.05*Math.cos(i/2), .25+.08*Math.cos(i/5)]);
+  function area(w,h){ const max=Math.max(...H.map(([a,b])=>a+b))*1.12, step=w/(H.length-1);
+    const pt=(v,i)=>`${(i*step).toFixed(1)},${(h-v/max*h).toFixed(1)}`;
+    const top=H.map(([a,b],i)=>pt(a+b,i)), mid=H.map(([a,b],i)=>pt(b,i)), base=H.map((_,i)=>pt(0,i));
+    return `<polygon points="${mid.join(" ")} ${base.reverse().join(" ")}" fill="#3fcfa8" fill-opacity=".38"/>
+      <polygon points="${top.join(" ")} ${mid.slice().reverse().join(" ")}" fill="#e8825a" fill-opacity=".38"/>
+      <polyline points="${top.join(" ")}" fill="none" stroke="rgba(255,255,255,.8)" stroke-width="1.3" stroke-linejoin="round"/>`; }
+  const innerHTML = (withTabs) => `
+    ${withTabs ? `<div class="tabs" data-tabs><span class="thumb" data-thumb></span>${names.map((n,i)=>`<button data-tab="${i}">${n}</button>`).join("")}</div>` : ""}
+    <svg class="spark" viewBox="0 0 296 44" preserveAspectRatio="none">${area(296,44)}</svg>
+    <div class="legend"><div class="li"><span class="sw" style="background:var(--claude)"></span><span>Claude</span><em>932K/min</em></div>
+    <div class="li"><span class="sw" style="background:var(--codex)"></span><span>Codex</span><em>344K/min</em></div></div>
+    <div class="alert"><b>Codex</b> Weekly runs out about 2d 3h before it resets at this pace.</div>`;
+
+  document.querySelectorAll("[data-card]").forEach(card => {
+    const kind = card.dataset.card; let mode = 2;
+    card.querySelector("[data-inner]").innerHTML = innerHTML(kind === "b");
+    card.querySelector("[data-mini]").innerHTML = area(96,22);
+    const set = (m) => { mode = m; card.querySelector("[data-num]").textContent = modes[m][0]; card.querySelector("[data-unit]").textContent = modes[m][1];
+      const menu = card.querySelector("[data-menu]"); if (menu) menu.querySelectorAll("button").forEach((b,i)=>b.classList.toggle("on", i===m));
+      const tabs = card.querySelector("[data-tabs]"); if (tabs) { tabs.querySelectorAll("[data-tab]").forEach((b,i)=>b.classList.toggle("on", i===m));
+        const on = tabs.querySelector(`[data-tab="${m}"]`), th = tabs.querySelector("[data-thumb]"); th.style.left = on.offsetLeft + "px"; th.style.width = on.offsetWidth + "px"; } };
+    const toggle = () => { const ex = card.classList.toggle("expanded"); card.classList.toggle("collapsed", !ex);
+      card.querySelectorAll("[data-caret] .chev").forEach(c => c.style.transform = ex ? "rotate(180deg)" : "");
+      const t = card.querySelector("[data-trail] .chev"); if (t) t.style.transform = ex ? "rotate(90deg)" : "";
+      if (kind === "b") { card.querySelector("[data-caret]").style.display = ex ? "flex" : "none"; card.querySelector("[data-rowbtn]").style.pointerEvents = ex ? "none" : "";
+        requestAnimationFrame(() => set(mode)); } };
+    card.querySelectorAll("[data-caret],[data-trail],[data-rowbtn]").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); toggle(); }));
+    const menu = card.querySelector("[data-menu]");
+    if (menu) { menu.innerHTML = names.map((n,i)=>`<button data-m="${i}">${n}</button>`).join("");
+      card.querySelector("[data-menu-btn]").addEventListener("click", e => { e.stopPropagation(); menu.classList.toggle("open"); });
+      menu.querySelectorAll("button").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); set(+b.dataset.m); menu.classList.remove("open"); })); }
+    card.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); set(+b.dataset.tab); }));
+    set(2);
+  });
+  document.addEventListener("click", () => document.querySelectorAll("[data-menu]").forEach(m => m.classList.remove("open")));
+</script>
+</body>
+</html>

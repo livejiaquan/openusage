@@ -67,14 +67,14 @@ struct WidgetGroupedListView: View {
         }
     }
 
-    /// This provider card's live rate, when it is the card that owns its family's chip.
-    private func liveRate(for providerID: String) -> Double? {
-        guard let family = LiveActivityComposer.chipFamily(
+    /// The live family this provider card shows, when it is the card that owns that family's chip.
+    /// Only the family is decided here; the speed itself is read by small leaf views
+    /// (`LiveSlots.swift`), so the list's body never depends on the 2-second live updates.
+    private func liveFamily(for providerID: String) -> LiveFamily? {
+        LiveActivityComposer.chipFamily(
             forProviderID: providerID, providerIDs: layout.displayGroups.map(\.provider.id),
             ownerIDs: container.liveOwnerCardIDs
-        ) else { return nil }
-        return container.liveActivity.view(scope: dataStore.historyScopeID,
-                                           enabledFamilies: container.liveEnabledFamilies).providerRates[family]
+        )
     }
 
     private func section(_ group: ProviderGroup) -> some View {
@@ -94,7 +94,7 @@ struct WidgetGroupedListView: View {
             refreshing: dataStore.refreshingProviderIDs.contains(group.provider.id),
             staleness: dataStore.stalenessHint(for: group.provider.id),
             onCopyScreenshot: { shareCard(group) },
-            liveRate: headerSpeedEnabled ? liveRate(for: group.provider.id) : nil
+            liveFamily: headerSpeedEnabled ? liveFamily(for: group.provider.id) : nil
         )
         // The header sits just inside the card edge (4 pt), a step left of the card content (12 pt).
         .padding(.horizontal, 4)
@@ -285,8 +285,7 @@ struct WidgetGroupedListView: View {
             onToggleResetDisplay: { dataStore.resetDisplayMode.toggle() },
             onToggleMeterStyle: { dataStore.meterStyle.toggle() },
             condensedTop: condensedTop,
-            liveSweepPeriod: animatedMetersEnabled && data.title.hasPrefix("Session")
-                ? liveRate(for: providerID).flatMap(CalmMeterSweep.period(forRate:)) : nil,
+            liveSweepFamily: animatedMetersEnabled && data.title.hasPrefix("Session") ? liveFamily(for: providerID) : nil,
             showsEdgeGlow: edgeGlowEnabled,
             providerAccent: Self.accent(for: providerID)
         )
