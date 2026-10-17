@@ -14,6 +14,15 @@ struct CodexLogFileParser: Sendable {
     private var currentTierIsUltrafast = false
     private var sawSessionMeta = false
     private var replayGate: ChildReplayGate?
+    /// Set when parsing starts partway through a rollout (the live tail reads only its last half hour):
+    /// there is no running total yet, so the first totals-only line seeds it rather than counting the
+    /// whole session as one turn.
+    private var seedsFirstTotals = false
+
+    /// Starts this parser partway through a rollout instead of at its first line.
+    mutating func resumeMidFile() {
+        seedsFirstTotals = true
+    }
 
     mutating func parse(_ data: Data) -> [CodexLogUsageScanner.Event] {
         var events: [CodexLogUsageScanner.Event] = []
@@ -92,10 +101,16 @@ struct CodexLogFileParser: Sendable {
             if let last = (info?["last_token_usage"] as? [String: Any]).map(CodexLogUsageScanner.RawUsage.init(json:)) {
                 usage = last
             } else if let totals {
+                if seedsFirstTotals, previousTotals == nil {
+                    previousTotals = totals
+                    seedsFirstTotals = false
+                    continue
+                }
                 usage = totals.subtracting(previousTotals)
             } else {
                 continue
             }
+            seedsFirstTotals = false
             if let totals { previousTotals = totals }
             guard usage.input > 0 || usage.cached > 0 || usage.output > 0 || usage.reasoning > 0 else { continue }
 

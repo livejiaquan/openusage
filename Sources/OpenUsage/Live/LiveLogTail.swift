@@ -121,14 +121,15 @@ actor LiveLogTail {
             cursor = existing
         } else {
             cursor = newCursor(now: now)
-            // A new Claude log starts where its last half hour begins (Claude lines are self-contained).
-            // Codex rollouts stay whole: their parser carries running totals and session metadata.
-            if family == .claude {
-                cursor.offset = LiveTailStart.offset(size: size, since: now.addingTimeInterval(-Self.window)) { offset, count in
-                    try? handle.seek(toOffset: offset)
-                    return try? handle.read(upToCount: count)
-                }
+            // A new log starts where its last half hour begins, not at byte 0 (an active Codex rollout or
+            // Claude session runs to tens of megabytes). A Codex parser resumed partway seeds its running
+            // total from the first line it sees; a rollout begun inside the window (a child session that
+            // replays its parent first) is read whole, since the offset is then 0.
+            cursor.offset = LiveTailStart.offset(size: size, since: now.addingTimeInterval(-Self.window)) { offset, count in
+                try? handle.seek(toOffset: offset)
+                return try? handle.read(upToCount: count)
             }
+            if cursor.offset > 0 { cursor.codexParser?.resumeMidFile() }
         }
         guard size > cursor.offset else {
             cursors[path] = cursor
