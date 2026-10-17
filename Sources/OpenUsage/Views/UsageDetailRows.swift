@@ -99,7 +99,8 @@ struct TopModelsRow: View {
             OnDemandGroupHeader(title: data.title)
             compositionBar
                 .frame(height: 8)
-                .padding(.top, 1)
+                // Title baseline to bar matches the other groups' baseline to first line (≈13.5 pt).
+                .padding(.top, 2.5)
                 .padding(.bottom, 8)
             VStack(spacing: 4) {
                 ForEach(Array(entries.enumerated()), id: \.element.model) { index, entry in
