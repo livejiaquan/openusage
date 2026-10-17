@@ -4,7 +4,8 @@ import SwiftUI
 /// by the dashboard for runs of two or more adjacent spend rows; the metrics themselves are unchanged.
 struct UsageStatRow: View {
     let columns: [WidgetData]
-    var showsTopDivider = false
+    /// Sits under another row in the card, so it gets the full group spacing above it.
+    var separatedAbove = false
     @AppStorage(DensitySetting.key) private var density = DensitySetting.regular
     /// The column whose model breakdown is open (clicking a column with a breakdown opens it).
     @State private var detailIndex: Int?
@@ -19,11 +20,8 @@ struct UsageStatRow: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.top, OnDemandGroupRhythm.top(density, divided: showsTopDivider))
+        .padding(.top, OnDemandGroupRhythm.top(density, separated: separatedAbove))
         .padding(.bottom, OnDemandGroupRhythm.bottom(density))
-        .overlay(alignment: .top) {
-            if showsTopDivider { OnDemandGroupDivider() }
-        }
         .accessibilityElement(children: .contain)
     }
 
@@ -97,8 +95,9 @@ struct TopModelsRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             OnDemandGroupHeader(title: data.title)
+            // Same thickness as the quota meters above, so the card has one bar weight.
             compositionBar
-                .frame(height: 8)
+                .frame(height: density.meterHeight)
                 // Title baseline to bar matches the other groups' baseline to first line (≈13.5 pt).
                 .padding(.top, 2.5)
                 .padding(.bottom, 8)
@@ -127,7 +126,7 @@ struct TopModelsRow: View {
                         .offset(x: widths[..<index].reduce(0, +) + gap * CGFloat(index))
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .clipShape(Capsule())
         }
         .accessibilityHidden(true)
     }
@@ -149,29 +148,18 @@ struct TopModelsRow: View {
     }
 }
 
-/// One vertical rhythm for On Demand groups, so the hairline between two groups sits exactly halfway:
-/// every group ends `bottom` below its last line, and a divided group starts the same distance under
-/// the line. The first group under the caret (no line) sits closer, since the caret already separates it.
+/// One vertical rhythm for On Demand groups, separated by space alone (no rules): every group ends
+/// `bottom` below its last line, and a group under another row starts `top` below it, so the ink gap
+/// between groups is the same everywhere (~22 pt). The first group under the caret sits closer, since
+/// the caret already separates it.
 enum OnDemandGroupRhythm {
-    /// Under a line, 2 pt less than the gap above it: a title's text box carries ~3 pt of space over its
-    /// capitals that the line above a group's last row doesn't, so equal boxes read lopsided (measured
-    /// 11 pt above vs 13.5 pt below); this optical correction makes the ink gaps match.
-    static func top(_ density: DensitySetting, divided: Bool) -> CGFloat {
-        divided ? density.barRowPadding - 2 : density.textRowPadding
+    /// 2 pt less than `bottom`: a title's text box carries ~3 pt of space over its capitals, so this
+    /// optical correction keeps the visible gap between groups even.
+    static func top(_ density: DensitySetting, separated: Bool) -> CGFloat {
+        separated ? density.barRowPadding - 2 : density.textRowPadding
     }
 
     static func bottom(_ density: DensitySetting) -> CGFloat { density.barRowPadding }
-}
-
-/// The hairline between On Demand groups, inset to the card's content edges.
-struct OnDemandGroupDivider: View {
-    var body: some View {
-        Rectangle()
-            .fill(Color.primary.opacity(0.08))
-            .frame(height: 0.5)
-            .padding(.horizontal, 12)
-            .accessibilityHidden(true)
-    }
 }
 
 /// The quiet title over an On Demand group (Rate Limit Resets, Top Models Today, Usage): 12 pt secondary,

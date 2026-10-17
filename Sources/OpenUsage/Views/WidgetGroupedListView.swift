@@ -184,7 +184,7 @@ struct WidgetGroupedListView: View {
             links: []
         )
         let usageRuns = Self.usageStatRuns(cardRows)
-        let groupDividers = groupDividerIDs(cardRows, usageRuns: usageRuns)
+        let separatedGroups = separatedGroupIDs(cardRows, usageRuns: usageRuns)
         // Same card builder the lifted preview uses, so the floating chip can't drift from the live card.
         return DashboardMetricCard {
             // One stable list keeps the drag-owning metric row alive when it crosses the caret boundary.
@@ -196,12 +196,12 @@ struct WidgetGroupedListView: View {
                     if isHidden(entry, usageRuns: usageRuns) {
                         EmptyView()
                     } else if let columns = usageRuns.heads[entry.descriptor.id] {
-                        UsageStatRow(columns: columns, showsTopDivider: groupDividers.contains(entry.descriptor.id))
+                        UsageStatRow(columns: columns, separatedAbove: separatedGroups.contains(entry.descriptor.id))
                             .contextMenu { rowMenu(entry.descriptor, providerID: providerID) }
                     } else {
                         row(entry.descriptor, data: entry.data, in: providerID,
                             condensedTop: condensedIDs.contains(entry.descriptor.id),
-                            showsTopDivider: groupDividers.contains(entry.descriptor.id))
+                            separatedAbove: separatedGroups.contains(entry.descriptor.id))
                     }
                 case .links(let links):
                     ProviderLinksView(links: links)
@@ -287,9 +287,9 @@ struct WidgetGroupedListView: View {
             || (row.data.showsTopModels && TopModels.entries(from: row.data.modelBreakdown).isEmpty)
     }
 
-    /// On Demand groups (resets, top models, usage) that sit under another visible row get a hairline;
-    /// the first one under the caret doesn't (the caret already separates it).
-    private func groupDividerIDs(_ rows: [DashboardMetricCardRow], usageRuns: UsageStatRuns) -> Set<String> {
+    /// On Demand groups (resets, top models, usage) that sit under another visible row get the full group
+    /// spacing above them; the first one under the caret sits closer (the caret already separates it).
+    private func separatedGroupIDs(_ rows: [DashboardMetricCardRow], usageRuns: UsageStatRuns) -> Set<String> {
         var ids: Set<String> = []
         var previousIsRow = false
         for cardRow in rows {
@@ -307,7 +307,7 @@ struct WidgetGroupedListView: View {
     }
 
     private func row(_ descriptor: WidgetDescriptor, data: WidgetData, in providerID: String,
-                     condensedTop: Bool, showsTopDivider: Bool = false) -> some View {
+                     condensedTop: Bool, separatedAbove: Bool = false) -> some View {
         return WidgetRowView(
             data: data,
             onToggleResetDisplay: { dataStore.resetDisplayMode.toggle() },
@@ -315,7 +315,7 @@ struct WidgetGroupedListView: View {
             condensedTop: condensedTop,
             liveSweepFamily: animatedMetersEnabled && data.title.hasPrefix("Session") ? liveFamily(for: providerID) : nil,
             showsEdgeGlow: edgeGlowEnabled,
-            showsTopDivider: showsTopDivider,
+            separatedAbove: separatedAbove,
             providerAccent: Self.accent(for: providerID)
         )
             .environment(\.codexResetClaim, codexResetClaims[providerID])
